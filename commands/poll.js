@@ -397,6 +397,19 @@ async function handleStatus(interaction) {
             )
             .setColor('#0099FF')
             .setTimestamp();
+
+        // Add numbered nominations list
+        if (poll.nominations.length > 0) {
+            const nominationsList = poll.nominations.map((nomination, index) => 
+                `${index + 1}. **${nomination.title}**\n   [Link](${nomination.link})\n   ${nomination.description || 'No description'}`
+            ).join('\n\n');
+            
+            embed.addFields({
+                name: '📚 Nominated Books',
+                value: nominationsList.length > 1024 ? nominationsList.substring(0, 1021) + '...' : nominationsList,
+                inline: false
+            });
+        }
         
         if (poll.phase === 'completed' && poll.results) {
             embed.addFields({

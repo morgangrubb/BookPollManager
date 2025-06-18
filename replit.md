@@ -105,12 +105,15 @@ The application is configured for Replit deployment with:
 
 ## Recent Changes
 
-- June 18, 2025: Discord bot fully operational with smart poll detection
+- June 18, 2025: Discord bot fully operational with advanced poll management
   - Bot successfully connects to Discord as "Book Poll#3846"
   - Firebase Firestore database created and working
   - All slash commands registered and functional
   - Smart poll detection: nominate and vote commands auto-detect active polls
-  - Poll creation and retrieval tested successfully
+  - Advanced poll management: early phase endings, nomination removal
+  - Automatic completion when all members have voted
+  - Enhanced poll status with numbered nominations for easy management
+  - Creator-only controls for poll management
   - Automated scheduler running for poll phase transitions
   - Production ready for Discord servers
 
