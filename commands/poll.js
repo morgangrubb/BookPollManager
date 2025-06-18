@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { createPoll, nominateBook, submitVote, getPoll, getAllPolls } = require('../services/pollManager');
+const { createPoll, nominateBook, submitVote, getPoll, getAllPolls, getActivePolls } = require('../services/pollManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,10 +30,6 @@ module.exports = {
                 .setName('nominate')
                 .setDescription('Nominate a book for the active poll')
                 .addStringOption(option =>
-                    option.setName('poll_id')
-                        .setDescription('Poll ID')
-                        .setRequired(true))
-                .addStringOption(option =>
                     option.setName('book_title')
                         .setDescription('Title of the book')
                         .setRequired(true))
@@ -44,6 +40,10 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('description')
                         .setDescription('Brief description of the book')
+                        .setRequired(false))
+                .addStringOption(option =>
+                    option.setName('poll_id')
+                        .setDescription('Poll ID (optional if only one active poll)')
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
@@ -51,8 +51,8 @@ module.exports = {
                 .setDescription('Vote in a poll (opens voting interface)')
                 .addStringOption(option =>
                     option.setName('poll_id')
-                        .setDescription('Poll ID')
-                        .setRequired(true)))
+                        .setDescription('Poll ID (optional if only one active voting poll)')
+                        .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('status')
@@ -148,12 +148,38 @@ async function handleCreatePoll(interaction) {
 }
 
 async function handleNominate(interaction) {
-    const pollId = interaction.options.getString('poll_id');
+    let pollId = interaction.options.getString('poll_id');
     const bookTitle = interaction.options.getString('book_title');
     const bookLink = interaction.options.getString('book_link');
     const description = interaction.options.getString('description') || '';
     
     try {
+        // If no poll_id provided, try to find the active poll for this guild
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildActivePolls = activePolls.filter(poll => 
+                poll.guildId === interaction.guildId && poll.phase === 'nomination'
+            );
+            
+            if (guildActivePolls.length === 0) {
+                return await interaction.reply({
+                    content: '❌ No active nomination polls found in this server. Please specify a poll ID or create a new poll first.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildActivePolls.length > 1) {
+                const pollList = guildActivePolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                return await interaction.reply({
+                    content: `❌ Multiple active polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            // Use the single active poll
+            pollId = guildActivePolls[0].id;
+        }
+        
         await nominateBook(pollId, {
             title: bookTitle,
             link: bookLink,
@@ -184,9 +210,35 @@ async function handleNominate(interaction) {
 }
 
 async function handleVote(interaction) {
-    const pollId = interaction.options.getString('poll_id');
+    let pollId = interaction.options.getString('poll_id');
     
     try {
+        // If no poll_id provided, try to find the active voting poll for this guild
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildVotingPolls = activePolls.filter(poll => 
+                poll.guildId === interaction.guildId && poll.phase === 'voting'
+            );
+            
+            if (guildVotingPolls.length === 0) {
+                return await interaction.reply({
+                    content: '❌ No active voting polls found in this server. Please specify a poll ID or wait for the nomination phase to end.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildVotingPolls.length > 1) {
+                const pollList = guildVotingPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                return await interaction.reply({
+                    content: `❌ Multiple active voting polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            // Use the single active voting poll
+            pollId = guildVotingPolls[0].id;
+        }
+        
         const poll = await getPoll(pollId);
         
         if (!poll) {
