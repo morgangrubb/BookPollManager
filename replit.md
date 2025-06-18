@@ -122,6 +122,8 @@ The application is configured for Replit deployment with:
   - Fixed timeout issues with deferred responses and member fetching
   - Enhanced results display: shows runners-up in descending score order for completed polls
   - Improved ranked choice voting algorithm with final standings tracking
+  - Added automatic voting phase announcements when nominations end (both scheduled and manual)
+  - Comprehensive voting announcements include all nominated books for easy reference
   - Production ready for Discord servers
 
 ## Changelog

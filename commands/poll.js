@@ -605,6 +605,10 @@ async function handleEndNominations(interaction) {
         
         await updatePollPhase(pollId, 'voting');
         
+        // Send voting phase announcement to the channel
+        const { announceVotingPhase } = require('../services/scheduler');
+        await announceVotingPhase(poll);
+        
         const embed = new EmbedBuilder()
             .setTitle('📝➡️🗳️ Nomination Period Ended')
             .setDescription(`**${poll.title}** has moved to the voting phase!`)

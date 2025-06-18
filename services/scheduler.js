@@ -1,13 +1,17 @@
 const cron = require('node-cron');
 const { getActivePolls, updatePollPhase, completePoll, checkIfAllVoted } = require('./pollManager');
+const { EmbedBuilder } = require('discord.js');
 
 let schedulerStarted = false;
+let discordClient = null;
 
-function startScheduler() {
+function startScheduler(client) {
     if (schedulerStarted) {
         console.log('Scheduler already started');
         return;
     }
+    
+    discordClient = client;
     
     // Run every minute to check for poll phase transitions
     cron.schedule('* * * * *', async () => {
@@ -33,7 +37,8 @@ async function checkPollPhases() {
                 console.log(`Transitioning poll ${poll.id} to voting phase`);
                 await updatePollPhase(poll.id, 'voting');
                 
-                // Notify about phase change (you could send a Discord message here)
+                // Send voting phase announcement to Discord channel
+                await announceVotingPhase(poll);
                 console.log(`Poll "${poll.title}" has moved to voting phase`);
             }
             
@@ -64,7 +69,53 @@ async function checkPollPhasesNow() {
     await checkPollPhases();
 }
 
+async function announceVotingPhase(poll) {
+    if (!discordClient) return;
+    
+    try {
+        const guild = await discordClient.guilds.fetch(poll.guildId);
+        const channel = await guild.channels.fetch(poll.channelId);
+        
+        if (!channel) {
+            console.log(`Channel ${poll.channelId} not found for poll ${poll.id}`);
+            return;
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle('🗳️ Voting Phase Has Begun!')
+            .setDescription(`**${poll.title}**\n\nNominations are now closed. Time to vote!`)
+            .setColor(0x00FF00)
+            .addFields(
+                { name: '📚 Nominations', value: poll.nominations.length.toString(), inline: true },
+                { name: '⏰ Voting Ends', value: `<t:${Math.floor(poll.votingEnd.getTime() / 1000)}:R>`, inline: true }
+            )
+            .setFooter({ text: `Use /poll vote to submit your ranked preferences • Poll ID: ${poll.id}` });
+        
+        // List all nominations for voting reference
+        if (poll.nominations && poll.nominations.length > 0) {
+            const nominationsList = poll.nominations.map((nom, index) => 
+                `${index + 1}. **${nom.title}** by ${nom.author}\n   [Link](${nom.link})`
+            ).join('\n');
+            
+            embed.addFields({
+                name: '📖 Books to Vote On',
+                value: nominationsList.length > 1000 ? 
+                    nominationsList.substring(0, 1000) + '...' : 
+                    nominationsList,
+                inline: false
+            });
+        }
+        
+        await channel.send({ embeds: [embed] });
+        console.log(`Sent voting phase announcement for poll ${poll.id} to channel ${poll.channelId}`);
+        
+    } catch (error) {
+        console.error(`Error sending voting phase announcement for poll ${poll.id}:`, error);
+    }
+}
+
 module.exports = {
     startScheduler,
-    checkPollPhasesNow
+    checkPollPhasesNow,
+    announceVotingPhase
 };

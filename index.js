@@ -32,7 +32,7 @@ client.once('ready', async () => {
     }
     
     // Start scheduler for poll phase transitions
-    startScheduler();
+    startScheduler(client);
     console.log('✅ Scheduler started');
     
     // Register slash commands
