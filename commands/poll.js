@@ -721,44 +721,28 @@ async function handleEndVoting(interaction) {
         
         const results = await completePoll(pollId);
         
+        // Send comprehensive poll completion announcement to the channel
+        const { announcePollCompletion } = require('../services/scheduler');
+        await announcePollCompletion(poll, results);
+        
         const embed = new EmbedBuilder()
-            .setTitle('🏆 Poll Results')
-            .setDescription(`**${poll.title}** voting has ended!`)
+            .setTitle('🏆 Poll Completed')
+            .setDescription(`**${poll.title}** voting has ended manually!`)
             .setColor('#00FF00')
             .setTimestamp();
         
         if (results && results.winner) {
             embed.addFields({
                 name: '🥇 Winner',
-                value: `**${results.winner.title}**\n[Link](${results.winner.link})`,
+                value: `**${results.winner.title}**`,
                 inline: false
             });
             
             embed.addFields({
-                name: '📊 Voting Method',
-                value: results.method,
-                inline: true
+                name: '📊 Summary',
+                value: `Method: ${results.method}\nTotal Votes: ${results.totalVotes}`,
+                inline: false
             });
-            
-            embed.addFields({
-                name: '🗳️ Total Votes',
-                value: results.totalVotes.toString(),
-                inline: true
-            });
-            
-            // Add round details if available
-            if (results.rounds && results.rounds.length > 1) {
-                const roundSummary = results.rounds.map((round, index) => {
-                    const topCandidate = round.results[0];
-                    return `Round ${round.round}: ${topCandidate.candidate.title} (${topCandidate.votes} votes)`;
-                }).join('\n');
-                
-                embed.addFields({
-                    name: '📈 Voting Rounds',
-                    value: roundSummary,
-                    inline: false
-                });
-            }
         } else {
             embed.addFields({
                 name: '❌ No Winner',

@@ -50,7 +50,8 @@ async function checkPollPhases() {
                     console.log(`Completing poll ${poll.id}${now >= poll.votingEnd ? ' (time ended)' : ' (all voted)'}`);
                     const results = await completePoll(poll.id);
                     
-                    // Notify about poll completion
+                    // Send poll completion announcement to Discord channel
+                    await announcePollCompletion(poll, results);
                     console.log(`Poll "${poll.title}" has been completed`);
                     if (results && results.winner) {
                         console.log(`Winner: ${results.winner.title}`);
@@ -114,8 +115,86 @@ async function announceVotingPhase(poll) {
     }
 }
 
+async function announcePollCompletion(poll, results) {
+    if (!discordClient) return;
+    
+    try {
+        const guild = await discordClient.guilds.fetch(poll.guildId);
+        const channel = await guild.channels.fetch(poll.channelId);
+        
+        if (!channel) {
+            console.log(`Channel ${poll.channelId} not found for poll ${poll.id}`);
+            return;
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle('🏆 Poll Results Are In!')
+            .setDescription(`**${poll.title}** has been completed!`)
+            .setColor(0xFFD700)
+            .setTimestamp();
+        
+        if (results && results.winner) {
+            embed.addFields({
+                name: '🥇 Winner',
+                value: `**${results.winner.title}** by ${results.winner.author}\n[Link](${results.winner.link})`,
+                inline: false
+            });
+            
+            // Add comprehensive results based on tally method
+            if (poll.tallyMethod === 'chris-style' && results.finalScores) {
+                let resultsText = '';
+                results.finalScores.forEach((candidate, index) => {
+                    const position = index + 1;
+                    const emoji = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '📍';
+                    resultsText += `${emoji} **${candidate.title}**: ${candidate.score} points\n`;
+                });
+                
+                embed.addFields({
+                    name: '📊 Final Scores (All Books)',
+                    value: resultsText.trim(),
+                    inline: false
+                });
+            } else if (results.finalStandings) {
+                let resultsText = '';
+                results.finalStandings.forEach((candidate, index) => {
+                    const position = index + 1;
+                    const emoji = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '📍';
+                    const votes = candidate.finalVotes || 0;
+                    const percentage = candidate.finalPercentage || '0.0';
+                    resultsText += `${emoji} **${candidate.title}**: ${votes} votes (${percentage}%)\n`;
+                });
+                
+                embed.addFields({
+                    name: '📊 Final Results (All Books)',
+                    value: resultsText.trim(),
+                    inline: false
+                });
+            }
+            
+            embed.addFields({
+                name: '📈 Voting Stats',
+                value: `**Total Votes:** ${results.totalVotes}\n**Method:** ${results.method}`,
+                inline: false
+            });
+        } else {
+            embed.addFields({
+                name: '❌ No Winner',
+                value: results?.error || 'No votes were cast',
+                inline: false
+            });
+        }
+        
+        await channel.send({ embeds: [embed] });
+        console.log(`Sent poll completion announcement for poll ${poll.id} to channel ${poll.channelId}`);
+        
+    } catch (error) {
+        console.error(`Error sending poll completion announcement for poll ${poll.id}:`, error);
+    }
+}
+
 module.exports = {
     startScheduler,
     checkPollPhasesNow,
-    announceVotingPhase
+    announceVotingPhase,
+    announcePollCompletion
 };

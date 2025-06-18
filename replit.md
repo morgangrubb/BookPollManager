@@ -128,6 +128,9 @@ The application is configured for Replit deployment with:
   - Chris-style adapts to nomination count: 3+ books use top 3 (3pts/2pts/1pt), fewer books rank all available
   - Optional tally method selection during poll creation (ranked-choice or chris-style)
   - Completed polls show appropriate results format based on tally method
+  - Added comprehensive poll completion announcements showing all results for both voting methods
+  - Chris-style completion shows all books with points in descending order
+  - Ranked choice completion shows all books from winner to least voted option
   - Production ready for Discord servers
 
 ## Changelog
