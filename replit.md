@@ -103,9 +103,18 @@ The application is configured for Replit deployment with:
 - Firebase project ID and service account key
 - Optional guild ID for server-specific commands
 
+## Recent Changes
+
+- June 18, 2025: Discord bot fully operational
+  - Bot successfully connects to Discord as "Book Poll#3846"
+  - Firebase Firestore integration working
+  - All slash commands registered and functional
+  - Automated scheduler running for poll phase transitions
+  - Ready for production use in Discord servers
+
 ## Changelog
 
-- June 18, 2025. Initial setup
+- June 18, 2025. Initial setup and deployment
 
 ## User Preferences
 
