@@ -91,6 +91,14 @@ module.exports = {
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('withdraw-nomination')
+                .setDescription('Remove your own nomination from a poll')
+                .addStringOption(option =>
+                    option.setName('poll_id')
+                        .setDescription('Poll ID (optional if only one active poll)')
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('list')
                 .setDescription('List all polls')),
 
@@ -121,6 +129,9 @@ module.exports = {
                 break;
             case 'remove-nomination':
                 await handleRemoveNomination(interaction);
+                break;
+            case 'withdraw-nomination':
+                await handleWithdrawNomination(interaction);
                 break;
         }
     }
@@ -225,17 +236,21 @@ async function handleNominate(interaction) {
             nominatedAt: new Date()
         });
         
-        const embed = new EmbedBuilder()
-            .setTitle('✅ Book Nominated!')
-            .setDescription(`**${bookTitle}** has been nominated for poll \`${pollId}\``)
+        const poll = await pollManager.getPoll(pollId);
+        
+        // Public announcement
+        const publicEmbed = new EmbedBuilder()
+            .setTitle('📚 New Book Nomination!')
+            .setDescription(`<@${interaction.user.id}> has nominated **${bookTitle}**`)
             .addFields(
                 { name: '🔗 Link', value: bookLink },
-                { name: '📝 Description', value: description || 'No description provided' }
+                { name: '📝 Description', value: description || 'No description provided' },
+                { name: '📊 Poll', value: poll.title }
             )
             .setColor('#00FF00')
             .setTimestamp();
         
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [publicEmbed] });
         
     } catch (error) {
         console.error('Error nominating book:', error);
@@ -342,6 +357,22 @@ async function handleVote(interaction) {
                 
                 await submitVote(pollId, interaction.user.id, rankings);
                 await message.reply('✅ Your vote has been recorded anonymously!');
+                
+                // Get updated poll to calculate vote percentage
+                const updatedPoll = await pollManager.getPoll(pollId);
+                const totalVotes = updatedPoll.votes ? updatedPoll.votes.length : 0;
+                const totalMembers = updatedPoll.guildMemberCount || 1; // Fallback to prevent division by zero
+                const votePercentage = Math.round((totalVotes / totalMembers) * 100);
+                
+                // Announce vote progress
+                const progressEmbed = new EmbedBuilder()
+                    .setTitle('🗳️ Vote Progress Update')
+                    .setDescription(`**${votePercentage}%** of members have voted (${totalVotes}/${totalMembers})`)
+                    .addFields({ name: 'Poll', value: updatedPoll.title })
+                    .setColor('#FF9900')
+                    .setTimestamp();
+                
+                await interaction.channel.send({ embeds: [progressEmbed] });
                 
                 // Delete the user's ranking message for privacy
                 setTimeout(() => {

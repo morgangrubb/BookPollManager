@@ -86,7 +86,7 @@ class PollManager {
         // Check if user already nominated
         const existingNomination = poll.nominations.find(n => n.nominatedBy === nomination.nominatedBy);
         if (existingNomination) {
-            throw new Error('You have already nominated a book for this poll');
+            throw new Error('You have already nominated a book for this poll. Use the remove command to delete your current nomination first.');
         }
         
         // Check if book already nominated
@@ -101,6 +101,33 @@ class PollManager {
         await pollRef.update({
             nominations: [...poll.nominations, nomination]
         });
+    }
+    
+    async removeUserNomination(pollId, userId) {
+        const db = this.getDB();
+        const pollRef = db.collection('polls').doc(pollId);
+        
+        const poll = await this.getPoll(pollId);
+        if (!poll) {
+            throw new Error('Poll not found');
+        }
+        
+        if (poll.phase !== 'nomination') {
+            throw new Error('Cannot remove nominations during voting or after poll completion');
+        }
+        
+        const userNominationIndex = poll.nominations.findIndex(n => n.nominatedBy === userId);
+        if (userNominationIndex === -1) {
+            throw new Error('You have not nominated any book in this poll');
+        }
+        
+        const updatedNominations = poll.nominations.filter((_, index) => index !== userNominationIndex);
+        
+        await pollRef.update({
+            nominations: updatedNominations
+        });
+        
+        return poll.nominations[userNominationIndex];
     }
     
     async submitVote(pollId, userId, rankings) {
@@ -198,6 +225,14 @@ class PollManager {
             throw new Error('Poll not found');
         }
         
+        if (poll.phase === 'completed') {
+            throw new Error('Cannot modify completed polls');
+        }
+        
+        if (poll.phase === 'voting') {
+            throw new Error('Cannot remove nominations during voting period');
+        }
+        
         if (nominationIndex < 0 || nominationIndex >= poll.nominations.length) {
             throw new Error('Invalid nomination index');
         }
@@ -241,5 +276,6 @@ module.exports = {
     completePoll: (pollId) => pollManager.completePoll(pollId),
     getActivePolls: () => pollManager.getActivePolls(),
     removeNomination: (pollId, nominationIndex) => pollManager.removeNomination(pollId, nominationIndex),
+    removeUserNomination: (pollId, userId) => pollManager.removeUserNomination(pollId, userId),
     checkIfAllVoted: (pollId) => pollManager.checkIfAllVoted(pollId)
 };
