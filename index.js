@@ -102,24 +102,41 @@ async function handleButtonInteraction(interaction) {
             let rankingInput, instructionInput;
             
             if (poll.tallyMethod === 'chris-style') {
-                rankingInput = new TextInputBuilder()
-                    .setCustomId('rankings')
-                    .setLabel('Pick your top 3 books (e.g., 2,5,1)')
-                    .setStyle(TextInputStyle.Short)
-                    .setPlaceholder('Enter exactly 3 book numbers: 1st,2nd,3rd')
-                    .setRequired(true)
-                    .setMaxLength(50);
+                const maxBooks = poll.nominations.length;
+                const requiredChoices = Math.min(3, maxBooks);
                 
-                const instructionText = poll.nominations.map((book, index) => 
-                    `${index + 1}. ${book.title}`
-                ).join('\n');
-                
-                instructionInput = new TextInputBuilder()
-                    .setCustomId('instructions')
-                    .setLabel('Choose EXACTLY 3 books (1st=3pts, 2nd=2pts, 3rd=1pt)')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setValue(instructionText)
-                    .setRequired(false);
+                if (requiredChoices === 3) {
+                    rankingInput = new TextInputBuilder()
+                        .setCustomId('rankings')
+                        .setLabel('Pick your top 3 books (e.g., 2,5,1)')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Enter exactly 3 book numbers: 1st,2nd,3rd')
+                        .setRequired(true)
+                        .setMaxLength(50);
+                    
+                    instructionInput = new TextInputBuilder()
+                        .setCustomId('instructions')
+                        .setLabel('Choose EXACTLY 3 books (1st=3pts, 2nd=2pts, 3rd=1pt)')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setValue(poll.nominations.map((book, index) => `${index + 1}. ${book.title}`).join('\n'))
+                        .setRequired(false);
+                } else {
+                    rankingInput = new TextInputBuilder()
+                        .setCustomId('rankings')
+                        .setLabel(`Rank all ${requiredChoices} books (e.g., ${Array.from({length: requiredChoices}, (_, i) => i + 1).join(',')})`)
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder(`Enter ${requiredChoices} book numbers in order of preference`)
+                        .setRequired(true)
+                        .setMaxLength(50);
+                    
+                    const pointsText = requiredChoices === 2 ? '1st=2pts, 2nd=1pt' : '1st=1pt';
+                    instructionInput = new TextInputBuilder()
+                        .setCustomId('instructions')
+                        .setLabel(`Rank ALL ${requiredChoices} books (${pointsText})`)
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setValue(poll.nominations.map((book, index) => `${index + 1}. ${book.title}`).join('\n'))
+                        .setRequired(false);
+                }
             } else {
                 rankingInput = new TextInputBuilder()
                     .setCustomId('rankings')
@@ -177,16 +194,18 @@ async function handleModalSubmit(interaction) {
             
             // Validate rankings based on tally method
             if (poll.tallyMethod === 'chris-style') {
-                // Chris-style: exactly 3 choices
-                if (rankings.length !== 3) {
+                const maxBookNumber = poll.nominations.length;
+                const requiredChoices = Math.min(3, maxBookNumber);
+                
+                // Chris-style: exactly 3 choices (or all books if fewer than 3)
+                if (rankings.length !== requiredChoices) {
                     return await interaction.reply({
-                        content: `Chris-style voting requires exactly 3 books! You entered ${rankings.length}.`,
+                        content: `Chris-style voting requires exactly ${requiredChoices} book${requiredChoices > 1 ? 's' : ''}! You entered ${rankings.length}.`,
                         ephemeral: true
                     });
                 }
                 
                 // Check for valid book numbers
-                const maxBookNumber = poll.nominations.length;
                 for (const ranking of rankings) {
                     if (ranking < 1 || ranking > maxBookNumber) {
                         return await interaction.reply({
@@ -198,9 +217,9 @@ async function handleModalSubmit(interaction) {
                 
                 // Check for duplicates
                 const uniqueRankings = [...new Set(rankings)];
-                if (uniqueRankings.length !== 3) {
+                if (uniqueRankings.length !== requiredChoices) {
                     return await interaction.reply({
-                        content: `Each book can only be chosen once! Please pick 3 different books.`,
+                        content: `Each book can only be chosen once! Please pick ${requiredChoices} different books.`,
                         ephemeral: true
                     });
                 }

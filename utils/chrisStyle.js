@@ -20,25 +20,28 @@ function calculateChrisStyleWinner(candidates, votes) {
         scores.set(index, 0);
     });
     
-    // Process each vote
+    // Process each vote - adapt point system based on number of candidates
+    const maxRankings = Math.min(3, candidates.length);
+    
     votes.forEach(vote => {
-        if (vote.rankings && vote.rankings.length >= 3) {
-            // First place (3 points)
-            const firstPlace = vote.rankings[0] - 1; // Convert to 0-based index
-            if (firstPlace >= 0 && firstPlace < candidates.length) {
-                scores.set(firstPlace, scores.get(firstPlace) + 3);
-            }
-            
-            // Second place (2 points)
-            const secondPlace = vote.rankings[1] - 1;
-            if (secondPlace >= 0 && secondPlace < candidates.length) {
-                scores.set(secondPlace, scores.get(secondPlace) + 2);
-            }
-            
-            // Third place (1 point)
-            const thirdPlace = vote.rankings[2] - 1;
-            if (thirdPlace >= 0 && thirdPlace < candidates.length) {
-                scores.set(thirdPlace, scores.get(thirdPlace) + 1);
+        if (vote.rankings && vote.rankings.length >= maxRankings) {
+            // Award points based on available positions
+            for (let i = 0; i < maxRankings; i++) {
+                const candidateIndex = vote.rankings[i] - 1; // Convert to 0-based index
+                if (candidateIndex >= 0 && candidateIndex < candidates.length) {
+                    let points;
+                    if (maxRankings === 3) {
+                        // Normal chris-style: 3, 2, 1 points
+                        points = 3 - i;
+                    } else if (maxRankings === 2) {
+                        // Two books: 2, 1 points
+                        points = 2 - i;
+                    } else {
+                        // One book: 1 point
+                        points = 1;
+                    }
+                    scores.set(candidateIndex, scores.get(candidateIndex) + points);
+                }
             }
         }
     });
