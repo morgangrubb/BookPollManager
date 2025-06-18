@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { initializeFirebase } = require('./services/firebase');
 const { startScheduler } = require('./services/scheduler');
 const config = require('./config/config');
@@ -62,6 +62,8 @@ client.on('interactionCreate', async interaction => {
         await handleButtonInteraction(interaction);
     } else if (interaction.isModalSubmit()) {
         await handleModalSubmit(interaction);
+    } else if (interaction.isStringSelectMenu()) {
+        await handleSelectMenuInteraction(interaction);
     }
 });
 
@@ -95,51 +97,75 @@ async function handleButtonInteraction(interaction) {
                 });
             }
             
-            // Create modal for ranking input
-            const modal = new ModalBuilder()
-                .setCustomId(`vote_modal_${pollId}`)
-                .setTitle(`Vote: ${poll.title}`);
-            
-            let rankingInput, instructionInput;
-            
+            // For chris-style voting, use dropdown menus instead of modal
             if (poll.tallyMethod === 'chris-style') {
                 const maxBooks = poll.nominations.length;
                 const requiredChoices = Math.min(3, maxBooks);
                 
-                if (requiredChoices === 3) {
-                    rankingInput = new TextInputBuilder()
-                        .setCustomId('rankings')
-                        .setLabel('Pick your top 3 books (e.g., 2,5,1)')
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('Enter exactly 3 book numbers: 1st,2nd,3rd')
-                        .setRequired(true)
-                        .setMaxLength(50);
+                // Create book options for dropdowns
+                const bookOptions = poll.nominations.map((book, index) => 
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel(`${book.title}`)
+                        .setDescription(`${book.author ? `by ${book.author}` : 'Book nomination'}`)
+                        .setValue(`${index + 1}`)
+                );
+                
+                // Create dropdown components
+                const components = [];
+                
+                // First choice dropdown (always visible)
+                const firstChoiceMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`first_choice_${pollId}`)
+                    .setPlaceholder('Select your first choice')
+                    .addOptions(bookOptions);
+                
+                components.push(new ActionRowBuilder().addComponents(firstChoiceMenu));
+                
+                // Second choice dropdown (visible if 2+ nominations)
+                if (maxBooks >= 2) {
+                    const secondChoiceMenu = new StringSelectMenuBuilder()
+                        .setCustomId(`second_choice_${pollId}`)
+                        .setPlaceholder('Select your second choice')
+                        .addOptions(bookOptions);
                     
-                    instructionInput = new TextInputBuilder()
-                        .setCustomId('instructions')
-                        .setLabel('Choose EXACTLY 3 books (1st=3pts, 2nd=2pts, 3rd=1pt)')
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setValue(poll.nominations.map((book, index) => `${index + 1}. ${book.title}`).join('\n'))
-                        .setRequired(false);
-                } else {
-                    rankingInput = new TextInputBuilder()
-                        .setCustomId('rankings')
-                        .setLabel(`Rank all ${requiredChoices} books (e.g., ${Array.from({length: requiredChoices}, (_, i) => i + 1).join(',')})`)
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder(`Enter ${requiredChoices} book numbers in order of preference`)
-                        .setRequired(true)
-                        .setMaxLength(50);
-                    
-                    const pointsText = requiredChoices === 2 ? '1st=2pts, 2nd=1pt' : '1st=1pt';
-                    instructionInput = new TextInputBuilder()
-                        .setCustomId('instructions')
-                        .setLabel(`Rank ALL ${requiredChoices} books (${pointsText})`)
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setValue(poll.nominations.map((book, index) => `${index + 1}. ${book.title}`).join('\n'))
-                        .setRequired(false);
+                    components.push(new ActionRowBuilder().addComponents(secondChoiceMenu));
                 }
+                
+                // Third choice dropdown (visible if 3+ nominations)
+                if (maxBooks >= 3) {
+                    const thirdChoiceMenu = new StringSelectMenuBuilder()
+                        .setCustomId(`third_choice_${pollId}`)
+                        .setPlaceholder('Select your third choice')
+                        .addOptions(bookOptions);
+                    
+                    components.push(new ActionRowBuilder().addComponents(thirdChoiceMenu));
+                }
+                
+                const pointsText = requiredChoices === 3 ? '1st=3pts, 2nd=2pts, 3rd=1pt' :
+                                 requiredChoices === 2 ? '1st=2pts, 2nd=1pt' : '1st=1pt';
+                
+                const embed = new EmbedBuilder()
+                    .setTitle(`Vote: ${poll.title}`)
+                    .setDescription(`Select your top ${requiredChoices} book${requiredChoices > 1 ? 's' : ''} in order of preference.\n\n**Scoring:** ${pointsText}`)
+                    .addFields({
+                        name: 'Instructions',
+                        value: `Choose ${requiredChoices === 1 ? 'your favorite book' : `up to ${requiredChoices} different books`}. Each choice must be different.`
+                    })
+                    .setColor('#0099FF');
+                
+                await interaction.reply({
+                    embeds: [embed],
+                    components: components,
+                    ephemeral: true
+                });
+                
             } else {
-                rankingInput = new TextInputBuilder()
+                // Use modal for ranked choice voting
+                const modal = new ModalBuilder()
+                    .setCustomId(`vote_modal_${pollId}`)
+                    .setTitle(`Vote: ${poll.title}`);
+                
+                const rankingInput = new TextInputBuilder()
                     .setCustomId('rankings')
                     .setLabel('Enter your rankings (e.g., 2,1,3)')
                     .setStyle(TextInputStyle.Short)
@@ -151,23 +177,146 @@ async function handleButtonInteraction(interaction) {
                     `${index + 1}. ${book.title}`
                 ).join('\n');
                 
-                instructionInput = new TextInputBuilder()
+                const instructionInput = new TextInputBuilder()
                     .setCustomId('instructions')
                     .setLabel('Book Options (Reference Only)')
                     .setStyle(TextInputStyle.Paragraph)
                     .setValue(instructionText)
                     .setRequired(false);
+                
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(rankingInput),
+                    new ActionRowBuilder().addComponents(instructionInput)
+                );
+                
+                await interaction.showModal(modal);
             }
-            
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(rankingInput),
-                new ActionRowBuilder().addComponents(instructionInput)
-            );
-            
-            await interaction.showModal(modal);
             
         } catch (error) {
             console.error('Error handling vote button:', error);
+            await interaction.reply({
+                content: `Error: ${error.message}`,
+                ephemeral: true
+            });
+        }
+    }
+}
+
+// Store user voting selections temporarily
+const userVoteSelections = new Map();
+
+// Handle select menu interactions
+async function handleSelectMenuInteraction(interaction) {
+    const customId = interaction.customId;
+    
+    if (customId.startsWith('first_choice_') || customId.startsWith('second_choice_') || customId.startsWith('third_choice_')) {
+        const parts = customId.split('_');
+        const choiceType = parts[0]; // 'first', 'second', or 'third'
+        const actualPollId = parts.slice(2).join('_'); // everything after 'choice_'
+        
+        try {
+            const poll = await pollManager.getPoll(actualPollId);
+            if (!poll) {
+                return await interaction.reply({
+                    content: 'Poll not found!',
+                    ephemeral: true
+                });
+            }
+            
+            // Check if user already voted
+            const existingVote = poll.votes ? poll.votes.find(v => v.userId === interaction.user.id) : null;
+            if (existingVote) {
+                return await interaction.reply({
+                    content: 'You have already voted in this poll!',
+                    ephemeral: true
+                });
+            }
+            
+            const selectedValue = interaction.values[0];
+            const userKey = `${interaction.user.id}_${actualPollId}`;
+            
+            // Initialize or get existing selections
+            if (!userVoteSelections.has(userKey)) {
+                userVoteSelections.set(userKey, {});
+            }
+            const selections = userVoteSelections.get(userKey);
+            
+            // Update the specific choice
+            selections[choiceType] = selectedValue;
+            
+            const maxBooks = poll.nominations.length;
+            const requiredChoices = Math.min(3, maxBooks);
+            
+            // Check if we have enough selections to submit vote
+            const currentSelections = Object.keys(selections).length;
+            const choiceTypes = ['first', 'second', 'third'].slice(0, requiredChoices);
+            const hasAllRequired = choiceTypes.every(type => selections[type]);
+            
+            if (hasAllRequired) {
+                // Validate no duplicates
+                const values = Object.values(selections);
+                const uniqueValues = [...new Set(values)];
+                
+                if (uniqueValues.length !== values.length) {
+                    return await interaction.reply({
+                        content: 'Each choice must be different! Please select different books for each position.',
+                        ephemeral: true
+                    });
+                }
+                
+                // Convert selections to rankings array for submission
+                const rankings = [];
+                for (const type of choiceTypes) {
+                    rankings.push(parseInt(selections[type]));
+                }
+                
+                // Submit the vote
+                await pollManager.submitVote(actualPollId, interaction.user.id, rankings);
+                
+                // Clean up temporary selections
+                userVoteSelections.delete(userKey);
+                
+                await interaction.reply({
+                    content: '✅ Your vote has been recorded anonymously!',
+                    ephemeral: true
+                });
+                
+                // Check if all members have voted for auto-completion
+                const completedPoll = await pollManager.getPoll(actualPollId);
+                if (completedPoll.phase === 'completed') {
+                    const resultsEmbed = new EmbedBuilder()
+                        .setTitle('🏆 Poll Completed - All Members Voted!')
+                        .setDescription(`Poll: **${completedPoll.title}**`)
+                        .addFields({
+                            name: '🥇 Winner',
+                            value: completedPoll.results.winner ? 
+                                `**${completedPoll.results.winner.title}**\n[Link](${completedPoll.results.winner.link})` : 
+                                'No clear winner'
+                        })
+                        .setColor('#FFD700')
+                        .setTimestamp();
+                    
+                    await interaction.channel.send({ embeds: [resultsEmbed] });
+                }
+                
+            } else {
+                // Show current selection status
+                const selectionStatus = choiceTypes.map(type => {
+                    const bookNum = selections[type];
+                    const bookTitle = bookNum ? poll.nominations[parseInt(bookNum) - 1]?.title : 'Not selected';
+                    const choiceName = type.charAt(0).toUpperCase() + type.slice(1);
+                    return `${choiceName} choice: ${bookTitle}`;
+                }).join('\n');
+                
+                const remaining = requiredChoices - currentSelections;
+                await interaction.reply({
+                    content: `Selection updated!\n\n**Current selections:**\n${selectionStatus}\n\n${remaining > 0 ? `Please make ${remaining} more selection${remaining > 1 ? 's' : ''} to submit your vote.` : 'Ready to submit!'}`,
+                    ephemeral: true
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error handling select menu:', error);
             await interaction.reply({
                 content: `Error: ${error.message}`,
                 ephemeral: true
