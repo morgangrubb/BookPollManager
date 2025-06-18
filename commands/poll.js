@@ -409,9 +409,32 @@ async function handleVote(interaction) {
 }
 
 async function handleStatus(interaction) {
-    const pollId = interaction.options.getString('poll_id');
+    let pollId = interaction.options.getString('poll_id');
     
     try {
+        // Auto-detect poll if not provided
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildPolls = activePolls.filter(poll => poll.guildId === interaction.guildId);
+            
+            if (guildPolls.length === 0) {
+                return await interaction.reply({
+                    content: 'No polls found in this server.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildPolls.length > 1) {
+                const pollList = guildPolls.map(poll => `\`${poll.id}\` - ${poll.title} (${poll.phase})`).join('\n');
+                return await interaction.reply({
+                    content: `Multiple polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            pollId = guildPolls[0].id;
+        }
+        
         const poll = await getPoll(pollId);
         
         if (!poll) {
