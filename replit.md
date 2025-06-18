@@ -135,6 +135,10 @@ The application is configured for Replit deployment with:
   - Enhanced poll list display includes tally method and creation date information
   - Added HTTP health check server on port 8080 for monitoring and deployment compatibility
   - Health endpoint returns bot status, connection state, timestamp, and uptime information
+  - Updated chris-style voting to use dropdown menus instead of text input modal
+  - Three dropdown menus: First choice (always), Second choice (2+ nominations), Third choice (3+ nominations)
+  - Temporary vote tracking system for multi-step dropdown selections with duplicate validation
+  - Enhanced user experience with selection status feedback and automatic vote submission
   - Production ready for Discord servers
 
 ## Changelog
