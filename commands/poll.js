@@ -465,11 +465,30 @@ async function handleStatus(interaction) {
         }
         
         if (poll.phase === 'completed' && poll.results) {
+            // Winner
             embed.addFields({
                 name: '🏆 Winner',
                 value: poll.results.winner ? `**${poll.results.winner.title}**\n[Link](${poll.results.winner.link})` : 'No winner determined',
                 inline: false
             });
+            
+            // Final standings with runners-up
+            if (poll.results.finalStandings && poll.results.finalStandings.length > 1) {
+                let standingsText = '';
+                poll.results.finalStandings.forEach((candidate, index) => {
+                    const position = index + 1;
+                    const emoji = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '📍';
+                    const votes = candidate.finalVotes || 0;
+                    const percentage = candidate.finalPercentage || '0.0';
+                    standingsText += `${emoji} **${candidate.title}**: ${votes} votes (${percentage}%)\n`;
+                });
+                
+                embed.addFields({
+                    name: '📊 Final Results',
+                    value: standingsText.trim(),
+                    inline: false
+                });
+            }
         }
         
         await interaction.followUp({ embeds: [embed] });

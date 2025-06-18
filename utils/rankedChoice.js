@@ -30,12 +30,20 @@ function calculateRankedChoiceWinner(candidates, votes) {
         const activeCandidates = candidatesList.filter(c => !c.eliminated);
         
         if (activeCandidates.length === 1) {
-            // We have a winner
+            // We have a winner - create final standings from last round
+            const lastRound = rounds[rounds.length - 1];
+            const finalStandings = lastRound ? lastRound.results.map(result => ({
+                ...candidatesList.find(c => c.index === result.candidate.index),
+                finalVotes: result.votes,
+                finalPercentage: result.percentage
+            })) : [activeCandidates[0]];
+            
             return {
                 winner: activeCandidates[0],
                 rounds,
                 totalVotes: votes.length,
-                method: 'Instant Runoff Voting (IRV)'
+                method: 'Instant Runoff Voting (IRV)',
+                finalStandings
             };
         }
         
@@ -98,7 +106,12 @@ function calculateRankedChoiceWinner(candidates, votes) {
                 rounds,
                 totalVotes: votes.length,
                 method: 'Instant Runoff Voting (IRV)',
-                winType: 'majority'
+                winType: 'majority',
+                finalStandings: roundResults.map(result => ({
+                    ...candidatesList.find(c => c.index === result.candidate.index),
+                    finalVotes: result.votes,
+                    finalPercentage: result.percentage
+                }))
             };
         }
         
@@ -116,12 +129,20 @@ function calculateRankedChoiceWinner(candidates, votes) {
         if (activeCandidates.length === 2) {
             const remaining = candidatesList.filter(c => !c.eliminated);
             if (remaining.length === 1) {
+                const lastRound = rounds[rounds.length - 1];
+                const finalStandings = lastRound ? lastRound.results.map(result => ({
+                    ...candidatesList.find(c => c.index === result.candidate.index),
+                    finalVotes: result.votes,
+                    finalPercentage: result.percentage
+                })) : remaining;
+                
                 return {
                     winner: remaining[0],
                     rounds,
                     totalVotes: votes.length,
                     method: 'Instant Runoff Voting (IRV)',
-                    winType: 'elimination'
+                    winType: 'elimination',
+                    finalStandings
                 };
             }
         }
@@ -141,6 +162,20 @@ function formatResults(results) {
     let output = `🏆 **Winner: ${results.winner.title}**\n`;
     output += `📊 **Method:** ${results.method}\n`;
     output += `📝 **Total Votes:** ${results.totalVotes}\n\n`;
+    
+    // Display final standings if available
+    if (results.finalStandings && results.finalStandings.length > 1) {
+        output += `**Final Results:**\n`;
+        
+        results.finalStandings.forEach((candidate, index) => {
+            const position = index + 1;
+            const emoji = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '📍';
+            const votes = candidate.finalVotes || 0;
+            const percentage = candidate.finalPercentage || '0.0';
+            output += `${emoji} ${candidate.title}: ${votes} votes (${percentage}%)\n`;
+        });
+        output += '\n';
+    }
     
     if (results.rounds && results.rounds.length > 0) {
         output += `**Voting Rounds:**\n`;

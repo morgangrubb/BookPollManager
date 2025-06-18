@@ -105,7 +105,7 @@ The application is configured for Replit deployment with:
 
 ## Recent Changes
 
-- June 18, 2025: Discord bot fully operational with user restrictions and announcements
+- June 18, 2025: Discord bot fully operational with enhanced results display
   - Bot successfully connects to Discord as "Book Poll#3846"
   - Firebase Firestore database created and working
   - All slash commands registered and functional
@@ -119,6 +119,9 @@ The application is configured for Replit deployment with:
   - Self-service nomination withdrawal during nomination phase
   - Prioritized active poll detection for seamless user experience
   - Automated scheduler running for poll phase transitions
+  - Fixed timeout issues with deferred responses and member fetching
+  - Enhanced results display: shows runners-up in descending score order for completed polls
+  - Improved ranked choice voting algorithm with final standings tracking
   - Production ready for Discord servers
 
 ## Changelog
