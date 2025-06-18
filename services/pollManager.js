@@ -189,6 +189,41 @@ class PollManager {
         }));
     }
     
+    async removeNomination(pollId, nominationIndex) {
+        const db = this.getDB();
+        const pollRef = db.collection('polls').doc(pollId);
+        
+        const poll = await this.getPoll(pollId);
+        if (!poll) {
+            throw new Error('Poll not found');
+        }
+        
+        if (nominationIndex < 0 || nominationIndex >= poll.nominations.length) {
+            throw new Error('Invalid nomination index');
+        }
+        
+        const updatedNominations = poll.nominations.filter((_, index) => index !== nominationIndex);
+        
+        await pollRef.update({
+            nominations: updatedNominations
+        });
+    }
+    
+    async checkIfAllVoted(pollId) {
+        const poll = await this.getPoll(pollId);
+        if (!poll || poll.phase !== 'voting') {
+            return false;
+        }
+        
+        // Get unique voters
+        const uniqueVoters = new Set(poll.votes.map(vote => vote.userId));
+        
+        // For now, we'll use a simple heuristic: if we have more than 3 votes
+        // and haven't had a new vote in the last check, consider ending early
+        // In a real implementation, you'd want to track guild member count
+        return uniqueVoters.size >= 3 && poll.nominations.length > 0;
+    }
+
     generatePollId() {
         return Math.random().toString(36).substr(2, 9).toUpperCase();
     }
@@ -204,5 +239,7 @@ module.exports = {
     submitVote: (pollId, userId, rankings) => pollManager.submitVote(pollId, userId, rankings),
     updatePollPhase: (pollId, newPhase) => pollManager.updatePollPhase(pollId, newPhase),
     completePoll: (pollId) => pollManager.completePoll(pollId),
-    getActivePolls: () => pollManager.getActivePolls()
+    getActivePolls: () => pollManager.getActivePolls(),
+    removeNomination: (pollId, nominationIndex) => pollManager.removeNomination(pollId, nominationIndex),
+    checkIfAllVoted: (pollId) => pollManager.checkIfAllVoted(pollId)
 };

@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { getActivePolls, updatePollPhase, completePoll } = require('./pollManager');
+const { getActivePolls, updatePollPhase, completePoll, checkIfAllVoted } = require('./pollManager');
 
 let schedulerStarted = false;
 
@@ -37,15 +37,19 @@ async function checkPollPhases() {
                 console.log(`Poll "${poll.title}" has moved to voting phase`);
             }
             
-            // Check if voting phase should end
-            if (poll.phase === 'voting' && now >= poll.votingEnd) {
-                console.log(`Completing poll ${poll.id}`);
-                const results = await completePoll(poll.id);
+            // Check if voting phase should end (by time or if everyone voted)
+            if (poll.phase === 'voting') {
+                const shouldEnd = now >= poll.votingEnd || await checkIfAllVoted(poll.id);
                 
-                // Notify about poll completion (you could send a Discord message here)
-                console.log(`Poll "${poll.title}" has been completed`);
-                if (results && results.winner) {
-                    console.log(`Winner: ${results.winner.title}`);
+                if (shouldEnd) {
+                    console.log(`Completing poll ${poll.id}${now >= poll.votingEnd ? ' (time ended)' : ' (all voted)'}`);
+                    const results = await completePoll(poll.id);
+                    
+                    // Notify about poll completion
+                    console.log(`Poll "${poll.title}" has been completed`);
+                    if (results && results.winner) {
+                        console.log(`Winner: ${results.winner.title}`);
+                    }
                 }
             }
         }

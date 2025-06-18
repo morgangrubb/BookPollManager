@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { createPoll, nominateBook, submitVote, getPoll, getAllPolls, getActivePolls } = require('../services/pollManager');
+const { createPoll, nominateBook, submitVote, getPoll, getAllPolls, getActivePolls, updatePollPhase, completePoll, removeNomination, getGuildMemberCount } = require('../services/pollManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -63,6 +63,34 @@ module.exports = {
                         .setRequired(true)))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('end-nominations')
+                .setDescription('End the nomination period early (creator only)')
+                .addStringOption(option =>
+                    option.setName('poll_id')
+                        .setDescription('Poll ID (optional if only one active poll)')
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('end-voting')
+                .setDescription('End the voting period early and announce results (creator only)')
+                .addStringOption(option =>
+                    option.setName('poll_id')
+                        .setDescription('Poll ID (optional if only one active poll)')
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('remove-nomination')
+                .setDescription('Remove a book nomination (creator only)')
+                .addIntegerOption(option =>
+                    option.setName('nomination_number')
+                        .setDescription('The number of the nomination to remove (see poll status)')
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('poll_id')
+                        .setDescription('Poll ID (optional if only one active poll)')
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('list')
                 .setDescription('List all polls')),
 
@@ -84,6 +112,15 @@ module.exports = {
                 break;
             case 'list':
                 await handleList(interaction);
+                break;
+            case 'end-nominations':
+                await handleEndNominations(interaction);
+                break;
+            case 'end-voting':
+                await handleEndVoting(interaction);
+                break;
+            case 'remove-nomination':
+                await handleRemoveNomination(interaction);
                 break;
         }
     }
@@ -413,6 +450,286 @@ async function handleList(interaction) {
         console.error('Error listing polls:', error);
         await interaction.reply({
             content: '❌ Failed to retrieve polls.',
+            ephemeral: true
+        });
+    }
+}
+
+async function handleEndNominations(interaction) {
+    let pollId = interaction.options.getString('poll_id');
+    
+    try {
+        // Auto-detect poll if not provided
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildNominationPolls = activePolls.filter(poll => 
+                poll.guildId === interaction.guildId && poll.phase === 'nomination'
+            );
+            
+            if (guildNominationPolls.length === 0) {
+                return await interaction.reply({
+                    content: 'No active nomination polls found in this server.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildNominationPolls.length > 1) {
+                const pollList = guildNominationPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                return await interaction.reply({
+                    content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            pollId = guildNominationPolls[0].id;
+        }
+        
+        const poll = await getPoll(pollId);
+        if (!poll) {
+            return await interaction.reply({
+                content: 'Poll not found!',
+                ephemeral: true
+            });
+        }
+        
+        // Check if user is the poll creator
+        if (poll.createdBy !== interaction.user.id) {
+            return await interaction.reply({
+                content: 'Only the poll creator can end the nomination period early.',
+                ephemeral: true
+            });
+        }
+        
+        if (poll.phase !== 'nomination') {
+            return await interaction.reply({
+                content: `This poll is already in the ${poll.phase} phase.`,
+                ephemeral: true
+            });
+        }
+        
+        if (poll.nominations.length === 0) {
+            return await interaction.reply({
+                content: 'Cannot end nominations - no books have been nominated yet!',
+                ephemeral: true
+            });
+        }
+        
+        await updatePollPhase(pollId, 'voting');
+        
+        const embed = new EmbedBuilder()
+            .setTitle('📝➡️🗳️ Nomination Period Ended')
+            .setDescription(`**${poll.title}** has moved to the voting phase!`)
+            .addFields(
+                { name: '📚 Books Nominated', value: poll.nominations.length.toString(), inline: true },
+                { name: '🗳️ Voting Ends', value: `<t:${Math.floor(poll.votingEnd.getTime() / 1000)}:F>`, inline: true }
+            )
+            .setColor('#FFA500')
+            .setTimestamp();
+        
+        await interaction.reply({ embeds: [embed] });
+        
+    } catch (error) {
+        console.error('Error ending nominations:', error);
+        await interaction.reply({
+            content: `Error: ${error.message}`,
+            ephemeral: true
+        });
+    }
+}
+
+async function handleEndVoting(interaction) {
+    let pollId = interaction.options.getString('poll_id');
+    
+    try {
+        // Auto-detect poll if not provided
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildVotingPolls = activePolls.filter(poll => 
+                poll.guildId === interaction.guildId && poll.phase === 'voting'
+            );
+            
+            if (guildVotingPolls.length === 0) {
+                return await interaction.reply({
+                    content: 'No active voting polls found in this server.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildVotingPolls.length > 1) {
+                const pollList = guildVotingPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                return await interaction.reply({
+                    content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            pollId = guildVotingPolls[0].id;
+        }
+        
+        const poll = await getPoll(pollId);
+        if (!poll) {
+            return await interaction.reply({
+                content: 'Poll not found!',
+                ephemeral: true
+            });
+        }
+        
+        // Check if user is the poll creator
+        if (poll.createdBy !== interaction.user.id) {
+            return await interaction.reply({
+                content: 'Only the poll creator can end the voting period early.',
+                ephemeral: true
+            });
+        }
+        
+        if (poll.phase !== 'voting') {
+            return await interaction.reply({
+                content: `This poll is not in the voting phase (currently: ${poll.phase}).`,
+                ephemeral: true
+            });
+        }
+        
+        if (poll.votes.length === 0) {
+            return await interaction.reply({
+                content: 'Cannot end voting - no votes have been submitted yet!',
+                ephemeral: true
+            });
+        }
+        
+        const results = await completePoll(pollId);
+        
+        const embed = new EmbedBuilder()
+            .setTitle('🏆 Poll Results')
+            .setDescription(`**${poll.title}** voting has ended!`)
+            .setColor('#00FF00')
+            .setTimestamp();
+        
+        if (results && results.winner) {
+            embed.addFields({
+                name: '🥇 Winner',
+                value: `**${results.winner.title}**\n[Link](${results.winner.link})`,
+                inline: false
+            });
+            
+            embed.addFields({
+                name: '📊 Voting Method',
+                value: results.method,
+                inline: true
+            });
+            
+            embed.addFields({
+                name: '🗳️ Total Votes',
+                value: results.totalVotes.toString(),
+                inline: true
+            });
+            
+            // Add round details if available
+            if (results.rounds && results.rounds.length > 1) {
+                const roundSummary = results.rounds.map((round, index) => {
+                    const topCandidate = round.results[0];
+                    return `Round ${round.round}: ${topCandidate.candidate.title} (${topCandidate.votes} votes)`;
+                }).join('\n');
+                
+                embed.addFields({
+                    name: '📈 Voting Rounds',
+                    value: roundSummary,
+                    inline: false
+                });
+            }
+        } else {
+            embed.addFields({
+                name: '❌ No Winner',
+                value: 'Unable to determine a winner.',
+                inline: false
+            });
+        }
+        
+        await interaction.reply({ embeds: [embed] });
+        
+    } catch (error) {
+        console.error('Error ending voting:', error);
+        await interaction.reply({
+            content: `Error: ${error.message}`,
+            ephemeral: true
+        });
+    }
+}
+
+async function handleRemoveNomination(interaction) {
+    let pollId = interaction.options.getString('poll_id');
+    const nominationNumber = interaction.options.getInteger('nomination_number');
+    
+    try {
+        // Auto-detect poll if not provided
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildActivePolls = activePolls.filter(poll => 
+                poll.guildId === interaction.guildId && (poll.phase === 'nomination' || poll.phase === 'voting')
+            );
+            
+            if (guildActivePolls.length === 0) {
+                return await interaction.reply({
+                    content: 'No active polls found in this server.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildActivePolls.length > 1) {
+                const pollList = guildActivePolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                return await interaction.reply({
+                    content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            pollId = guildActivePolls[0].id;
+        }
+        
+        const poll = await getPoll(pollId);
+        if (!poll) {
+            return await interaction.reply({
+                content: 'Poll not found!',
+                ephemeral: true
+            });
+        }
+        
+        // Check if user is the poll creator
+        if (poll.createdBy !== interaction.user.id) {
+            return await interaction.reply({
+                content: 'Only the poll creator can remove nominations.',
+                ephemeral: true
+            });
+        }
+        
+        if (poll.phase === 'completed') {
+            return await interaction.reply({
+                content: 'Cannot remove nominations from a completed poll.',
+                ephemeral: true
+            });
+        }
+        
+        if (nominationNumber < 1 || nominationNumber > poll.nominations.length) {
+            return await interaction.reply({
+                content: `Invalid nomination number. Please choose between 1 and ${poll.nominations.length}.`,
+                ephemeral: true
+            });
+        }
+        
+        const nominationToRemove = poll.nominations[nominationNumber - 1];
+        await removeNomination(pollId, nominationNumber - 1);
+        
+        const embed = new EmbedBuilder()
+            .setTitle('❌ Nomination Removed')
+            .setDescription(`**${nominationToRemove.title}** has been removed from poll \`${pollId}\``)
+            .setColor('#FF0000')
+            .setTimestamp();
+        
+        await interaction.reply({ embeds: [embed] });
+        
+    } catch (error) {
+        console.error('Error removing nomination:', error);
+        await interaction.reply({
+            content: `Error: ${error.message}`,
             ephemeral: true
         });
     }
