@@ -105,12 +105,13 @@ The application is configured for Replit deployment with:
 
 ## Recent Changes
 
-- June 18, 2025: Discord bot fully operational
+- June 18, 2025: Discord bot fully operational and tested
   - Bot successfully connects to Discord as "Book Poll#3846"
-  - Firebase Firestore integration working
+  - Firebase Firestore database created and working
   - All slash commands registered and functional
+  - Poll creation and retrieval tested successfully
   - Automated scheduler running for poll phase transitions
-  - Ready for production use in Discord servers
+  - Production ready for Discord servers
 
 ## Changelog
 
