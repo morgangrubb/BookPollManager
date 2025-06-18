@@ -25,7 +25,8 @@ class PollManager {
             results: null,
             createdAt: new Date(),
             nominationEnd: pollData.nominationEnd,
-            votingEnd: pollData.votingEnd
+            votingEnd: pollData.votingEnd,
+            tallyMethod: pollData.tallyMethod || 'ranked-choice'
         };
         
         await db.collection('polls').doc(poll.id).set(poll);
@@ -187,8 +188,14 @@ class PollManager {
             return;
         }
         
-        // Calculate ranked choice voting results
-        const results = calculateRankedChoiceWinner(poll.nominations, poll.votes);
+        // Calculate results based on tally method
+        let results;
+        if (poll.tallyMethod === 'chris-style') {
+            const { calculateChrisStyleWinner } = require('../utils/chrisStyle');
+            results = calculateChrisStyleWinner(poll.nominations, poll.votes);
+        } else {
+            results = calculateRankedChoiceWinner(poll.nominations, poll.votes);
+        }
         
         const db = this.getDB();
         const pollRef = db.collection('polls').doc(pollId);

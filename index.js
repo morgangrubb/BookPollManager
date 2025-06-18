@@ -99,24 +99,47 @@ async function handleButtonInteraction(interaction) {
                 .setCustomId(`vote_modal_${pollId}`)
                 .setTitle(`Vote: ${poll.title}`);
             
-            const rankingInput = new TextInputBuilder()
-                .setCustomId('rankings')
-                .setLabel('Enter your rankings (e.g., 2,1,3)')
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Enter rankings separated by commas')
-                .setRequired(true)
-                .setMaxLength(50);
+            let rankingInput, instructionInput;
             
-            const instructionText = poll.nominations.map((book, index) => 
-                `${index + 1}. ${book.title}`
-            ).join('\n');
-            
-            const instructionInput = new TextInputBuilder()
-                .setCustomId('instructions')
-                .setLabel('Book Options (Reference Only)')
-                .setStyle(TextInputStyle.Paragraph)
-                .setValue(instructionText)
-                .setRequired(false);
+            if (poll.tallyMethod === 'chris-style') {
+                rankingInput = new TextInputBuilder()
+                    .setCustomId('rankings')
+                    .setLabel('Pick your top 3 books (e.g., 2,5,1)')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('Enter exactly 3 book numbers: 1st,2nd,3rd')
+                    .setRequired(true)
+                    .setMaxLength(50);
+                
+                const instructionText = poll.nominations.map((book, index) => 
+                    `${index + 1}. ${book.title}`
+                ).join('\n');
+                
+                instructionInput = new TextInputBuilder()
+                    .setCustomId('instructions')
+                    .setLabel('Choose EXACTLY 3 books (1st=3pts, 2nd=2pts, 3rd=1pt)')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setValue(instructionText)
+                    .setRequired(false);
+            } else {
+                rankingInput = new TextInputBuilder()
+                    .setCustomId('rankings')
+                    .setLabel('Enter your rankings (e.g., 2,1,3)')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('Enter rankings separated by commas')
+                    .setRequired(true)
+                    .setMaxLength(50);
+                
+                const instructionText = poll.nominations.map((book, index) => 
+                    `${index + 1}. ${book.title}`
+                ).join('\n');
+                
+                instructionInput = new TextInputBuilder()
+                    .setCustomId('instructions')
+                    .setLabel('Book Options (Reference Only)')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setValue(instructionText)
+                    .setRequired(false);
+            }
             
             modal.addComponents(
                 new ActionRowBuilder().addComponents(rankingInput),
@@ -152,22 +175,53 @@ async function handleModalSubmit(interaction) {
             const rankingsInput = interaction.fields.getTextInputValue('rankings');
             const rankings = rankingsInput.split(',').map(r => parseInt(r.trim()));
             
-            // Validate rankings
-            if (rankings.length !== poll.nominations.length) {
-                return await interaction.reply({
-                    content: `Please rank all ${poll.nominations.length} books!`,
-                    ephemeral: true
-                });
-            }
-            
-            const validNumbers = Array.from({length: poll.nominations.length}, (_, i) => i + 1);
-            const sortedRankings = [...rankings].sort();
-            
-            if (sortedRankings.join(',') !== validNumbers.join(',')) {
-                return await interaction.reply({
-                    content: `Please use each number from 1 to ${poll.nominations.length} exactly once!`,
-                    ephemeral: true
-                });
+            // Validate rankings based on tally method
+            if (poll.tallyMethod === 'chris-style') {
+                // Chris-style: exactly 3 choices
+                if (rankings.length !== 3) {
+                    return await interaction.reply({
+                        content: `Chris-style voting requires exactly 3 books! You entered ${rankings.length}.`,
+                        ephemeral: true
+                    });
+                }
+                
+                // Check for valid book numbers
+                const maxBookNumber = poll.nominations.length;
+                for (const ranking of rankings) {
+                    if (ranking < 1 || ranking > maxBookNumber) {
+                        return await interaction.reply({
+                            content: `Invalid book number: ${ranking}. Please use numbers 1-${maxBookNumber}.`,
+                            ephemeral: true
+                        });
+                    }
+                }
+                
+                // Check for duplicates
+                const uniqueRankings = [...new Set(rankings)];
+                if (uniqueRankings.length !== 3) {
+                    return await interaction.reply({
+                        content: `Each book can only be chosen once! Please pick 3 different books.`,
+                        ephemeral: true
+                    });
+                }
+            } else {
+                // Ranked choice: rank all books
+                if (rankings.length !== poll.nominations.length) {
+                    return await interaction.reply({
+                        content: `Please rank all ${poll.nominations.length} books!`,
+                        ephemeral: true
+                    });
+                }
+                
+                const validNumbers = Array.from({length: poll.nominations.length}, (_, i) => i + 1);
+                const sortedRankings = [...rankings].sort();
+                
+                if (sortedRankings.join(',') !== validNumbers.join(',')) {
+                    return await interaction.reply({
+                        content: `Please use each number from 1 to ${poll.nominations.length} exactly once!`,
+                        ephemeral: true
+                    });
+                }
             }
             
             await pollManager.submitVote(pollId, interaction.user.id, rankings);

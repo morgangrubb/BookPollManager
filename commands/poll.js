@@ -25,7 +25,15 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('description')
                         .setDescription('Description of the poll')
-                        .setRequired(false)))
+                        .setRequired(false))
+                .addStringOption(option =>
+                    option.setName('tally_method')
+                        .setDescription('Voting method (ranked-choice or chris-style)')
+                        .setRequired(false)
+                        .addChoices(
+                            { name: 'Ranked Choice (IRV)', value: 'ranked-choice' },
+                            { name: 'Chris Style (Top 3 Points)', value: 'chris-style' }
+                        )))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('nominate')
@@ -143,6 +151,7 @@ async function handleCreatePoll(interaction) {
     const nominationEnd = interaction.options.getString('nomination_end');
     const votingEnd = interaction.options.getString('voting_end');
     const description = interaction.options.getString('description') || '';
+    const tallyMethod = interaction.options.getString('tally_method') || 'ranked-choice';
     
     try {
         // Parse dates
@@ -171,16 +180,20 @@ async function handleCreatePoll(interaction) {
             nominationEnd: nominationEndDate,
             votingEnd: votingEndDate,
             createdBy: interaction.user.id,
-            guildId: interaction.guildId
+            guildId: interaction.guildId,
+            tallyMethod: tallyMethod
         });
+        
+        const tallyMethodDisplay = tallyMethod === 'chris-style' ? 'Chris Style (Top 3 Points)' : 'Ranked Choice (IRV)';
         
         const embed = new EmbedBuilder()
             .setTitle('📚 New Book Poll Created!')
             .setDescription(`**${title}**\n${description}`)
             .addFields(
                 { name: '🆔 Poll ID', value: pollId, inline: true },
-                { name: '📝 Nominations Close', value: `<t:${Math.floor(nominationEndDate.getTime() / 1000)}:F>`, inline: true },
-                { name: '🗳️ Voting Closes', value: `<t:${Math.floor(votingEndDate.getTime() / 1000)}:F>`, inline: true }
+                { name: '📊 Tally Method', value: tallyMethodDisplay, inline: true },
+                { name: '📝 Nominations Close', value: `<t:${Math.floor(nominationEndDate.getTime() / 1000)}:F>`, inline: false },
+                { name: '🗳️ Voting Closes', value: `<t:${Math.floor(votingEndDate.getTime() / 1000)}:F>`, inline: false }
             )
             .setColor('#00FF00')
             .setTimestamp();
