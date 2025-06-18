@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { createPoll, nominateBook, submitVote, getPoll, getAllPolls, getActivePolls, updatePollPhase, completePoll, removeNomination, getGuildMemberCount } = require('../services/pollManager');
+const pollManager = require('../services/pollManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
