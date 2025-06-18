@@ -95,4 +95,13 @@ process.on('uncaughtException', error => {
 });
 
 // Start the bot
-client.login(config.discord.token);
+console.log('Attempting to login with token length:', config.discord.token?.length);
+client.login(config.discord.token).catch(error => {
+    console.error('Login failed:', error.message);
+    if (error.code === 'TokenInvalid') {
+        console.error('The Discord token appears to be invalid. Please check:');
+        console.error('1. The token is from the correct bot application');
+        console.error('2. The token hasn\'t been regenerated in Discord Developer Portal');
+        console.error('3. The token has no extra spaces or characters');
+    }
+});
