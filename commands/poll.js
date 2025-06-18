@@ -361,7 +361,12 @@ async function handleVote(interaction) {
                 // Get updated poll to calculate vote percentage
                 const updatedPoll = await pollManager.getPoll(pollId);
                 const totalVotes = updatedPoll.votes ? updatedPoll.votes.length : 0;
-                const totalMembers = updatedPoll.guildMemberCount || 1; // Fallback to prevent division by zero
+                
+                // Get actual server member count (excluding bots)
+                const guild = interaction.guild;
+                const guildMembers = await guild.members.fetch();
+                const humanMembers = guildMembers.filter(member => !member.user.bot);
+                const totalMembers = humanMembers.size;
                 const votePercentage = Math.round((totalVotes / totalMembers) * 100);
                 
                 // Announce vote progress
@@ -772,6 +777,70 @@ async function handleRemoveNomination(interaction) {
         
     } catch (error) {
         console.error('Error removing nomination:', error);
+        await interaction.reply({
+            content: `Error: ${error.message}`,
+            ephemeral: true
+        });
+    }
+}
+
+async function handleWithdrawNomination(interaction) {
+    let pollId = interaction.options.getString('poll_id');
+    
+    try {
+        // Auto-detect poll if not provided
+        if (!pollId) {
+            const activePolls = await getActivePolls();
+            const guildActivePolls = activePolls.filter(poll => 
+                poll.guildId === interaction.guildId && poll.phase === 'nomination'
+            );
+            
+            if (guildActivePolls.length === 0) {
+                return await interaction.reply({
+                    content: 'No active nomination polls found in this server.',
+                    ephemeral: true
+                });
+            }
+            
+            if (guildActivePolls.length > 1) {
+                const pollList = guildActivePolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                return await interaction.reply({
+                    content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
+                    ephemeral: true
+                });
+            }
+            
+            pollId = guildActivePolls[0].id;
+        }
+        
+        const poll = await getPoll(pollId);
+        if (!poll) {
+            return await interaction.reply({
+                content: 'Poll not found!',
+                ephemeral: true
+            });
+        }
+        
+        if (poll.phase !== 'nomination') {
+            return await interaction.reply({
+                content: 'You can only withdraw nominations during the nomination phase.',
+                ephemeral: true
+            });
+        }
+        
+        const removedNomination = await pollManager.removeUserNomination(pollId, interaction.user.id);
+        
+        const embed = new EmbedBuilder()
+            .setTitle('✅ Nomination Withdrawn')
+            .setDescription(`Your nomination **${removedNomination.title}** has been withdrawn from poll \`${pollId}\``)
+            .addFields({ name: 'Poll', value: poll.title })
+            .setColor('#FF9900')
+            .setTimestamp();
+        
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+        
+    } catch (error) {
+        console.error('Error withdrawing nomination:', error);
         await interaction.reply({
             content: `Error: ${error.message}`,
             ephemeral: true
