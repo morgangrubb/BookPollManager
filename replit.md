@@ -131,6 +131,8 @@ The application is configured for Replit deployment with:
   - Added comprehensive poll completion announcements showing all results for both voting methods
   - Chris-style completion shows all books with points in descending order
   - Ranked choice completion shows all books from winner to least voted option
+  - Poll listings now ordered by creation timestamp (newest first) with relative timestamps
+  - Enhanced poll list display includes tally method and creation date information
   - Production ready for Discord servers
 
 ## Changelog

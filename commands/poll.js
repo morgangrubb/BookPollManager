@@ -397,7 +397,11 @@ async function handleStatus(interaction) {
                 if (allPolls.length === 1) {
                     pollId = allPolls[0].id;
                 } else {
-                    const pollList = allPolls.map(poll => `\`${poll.id}\` - ${poll.title} (${poll.phase})`).join('\n');
+                    // Sort polls by creation timestamp (newest first)
+                    const sortedPolls = allPolls.sort((a, b) => b.createdAt - a.createdAt);
+                    const pollList = sortedPolls.map(poll => 
+                        `\`${poll.id}\` - ${poll.title} (${poll.phase}) - <t:${Math.floor(poll.createdAt.getTime() / 1000)}:R>`
+                    ).join('\n');
                     return await interaction.followUp({
                         content: `Multiple polls found. Please specify which poll:\n${pollList}`,
                         ephemeral: true
@@ -552,13 +556,18 @@ async function handleList(interaction) {
             .setColor('#0099FF')
             .setTimestamp();
         
-        polls.forEach(poll => {
+        // Sort polls by creation timestamp (newest first)
+        const sortedPolls = polls.sort((a, b) => b.createdAt - a.createdAt);
+        
+        sortedPolls.forEach(poll => {
             const status = poll.phase === 'completed' ? '✅' : 
                           poll.phase === 'voting' ? '🗳️' : '📝';
             
+            const tallyMethodDisplay = poll.tallyMethod === 'chris-style' ? 'Chris Style' : 'Ranked Choice';
+            
             embed.addFields({
                 name: `${status} ${poll.title}`,
-                value: `ID: \`${poll.id}\` | Phase: ${poll.phase} | Nominations: ${poll.nominations.length}`,
+                value: `ID: \`${poll.id}\` | Phase: ${poll.phase} | Method: ${tallyMethodDisplay}\nNominations: ${poll.nominations.length} | Created: <t:${Math.floor(poll.createdAt.getTime() / 1000)}:R>`,
                 inline: false
             });
         });
@@ -593,7 +602,11 @@ async function handleEndNominations(interaction) {
             }
             
             if (guildNominationPolls.length > 1) {
-                const pollList = guildNominationPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                // Sort polls by creation timestamp (newest first)
+                const sortedPolls = guildNominationPolls.sort((a, b) => b.createdAt - a.createdAt);
+                const pollList = sortedPolls.map(poll => 
+                    `\`${poll.id}\` - ${poll.title} - <t:${Math.floor(poll.createdAt.getTime() / 1000)}:R>`
+                ).join('\n');
                 return await interaction.reply({
                     content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
                     ephemeral: true
@@ -679,7 +692,11 @@ async function handleEndVoting(interaction) {
             }
             
             if (guildVotingPolls.length > 1) {
-                const pollList = guildVotingPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+                // Sort polls by creation timestamp (newest first)
+                const sortedPolls = guildVotingPolls.sort((a, b) => b.createdAt - a.createdAt);
+                const pollList = sortedPolls.map(poll => 
+                    `\`${poll.id}\` - ${poll.title} - <t:${Math.floor(poll.createdAt.getTime() / 1000)}:R>`
+                ).join('\n');
                 return await interaction.reply({
                     content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
                     ephemeral: true
