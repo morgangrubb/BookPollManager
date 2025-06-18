@@ -202,30 +202,32 @@ async function handleNominate(interaction) {
     const description = interaction.options.getString('description') || '';
     
     try {
-        // If no poll_id provided, try to find the active poll for this guild
+        // If no poll_id provided, try to find the single active poll for this guild
         if (!pollId) {
-            const activePolls = await getActivePolls();
-            const guildActivePolls = activePolls.filter(poll => 
-                poll.guildId === interaction.guildId && poll.phase === 'nomination'
-            );
+            const singleActivePoll = await pollManager.getSingleActivePoll(interaction.guildId);
             
-            if (guildActivePolls.length === 0) {
-                return await interaction.reply({
-                    content: '❌ No active nomination polls found in this server. Please specify a poll ID or create a new poll first.',
-                    ephemeral: true
-                });
-            }
-            
-            if (guildActivePolls.length > 1) {
-                const pollList = guildActivePolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
+            if (singleActivePoll && singleActivePoll.phase === 'nomination') {
+                pollId = singleActivePoll.id;
+            } else {
+                // Fallback to manual selection
+                const activePolls = await getActivePolls();
+                const guildNominationPolls = activePolls.filter(poll => 
+                    poll.guildId === interaction.guildId && poll.phase === 'nomination'
+                );
+                
+                if (guildNominationPolls.length === 0) {
+                    return await interaction.reply({
+                        content: '❌ No active nomination polls found in this server. Please specify a poll ID or create a new poll first.',
+                        ephemeral: true
+                    });
+                }
+                
+                const pollList = guildNominationPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
                 return await interaction.reply({
                     content: `❌ Multiple active polls found. Please specify which poll:\n${pollList}`,
                     ephemeral: true
                 });
             }
-            
-            // Use the single active poll
-            pollId = guildActivePolls[0].id;
         }
         
         await nominateBook(pollId, {
@@ -265,30 +267,32 @@ async function handleVote(interaction) {
     let pollId = interaction.options.getString('poll_id');
     
     try {
-        // If no poll_id provided, try to find the active voting poll for this guild
+        // If no poll_id provided, try to find the single active voting poll for this guild
         if (!pollId) {
-            const activePolls = await getActivePolls();
-            const guildVotingPolls = activePolls.filter(poll => 
-                poll.guildId === interaction.guildId && poll.phase === 'voting'
-            );
+            const singleActivePoll = await pollManager.getSingleActivePoll(interaction.guildId);
             
-            if (guildVotingPolls.length === 0) {
-                return await interaction.reply({
-                    content: '❌ No active voting polls found in this server. Please specify a poll ID or wait for the nomination phase to end.',
-                    ephemeral: true
-                });
-            }
-            
-            if (guildVotingPolls.length > 1) {
+            if (singleActivePoll && singleActivePoll.phase === 'voting') {
+                pollId = singleActivePoll.id;
+            } else {
+                // Fallback to manual selection
+                const activePolls = await getActivePolls();
+                const guildVotingPolls = activePolls.filter(poll => 
+                    poll.guildId === interaction.guildId && poll.phase === 'voting'
+                );
+                
+                if (guildVotingPolls.length === 0) {
+                    return await interaction.reply({
+                        content: '❌ No active voting polls found in this server. Please specify a poll ID or wait for the nomination phase to end.',
+                        ephemeral: true
+                    });
+                }
+                
                 const pollList = guildVotingPolls.map(poll => `\`${poll.id}\` - ${poll.title}`).join('\n');
                 return await interaction.reply({
                     content: `❌ Multiple active voting polls found. Please specify which poll:\n${pollList}`,
                     ephemeral: true
                 });
             }
-            
-            // Use the single active voting poll
-            pollId = guildVotingPolls[0].id;
         }
         
         const poll = await getPoll(pollId);
@@ -412,27 +416,33 @@ async function handleStatus(interaction) {
     let pollId = interaction.options.getString('poll_id');
     
     try {
-        // Auto-detect poll if not provided
+        // Auto-detect poll if not provided - prioritize active polls
         if (!pollId) {
-            const activePolls = await getActivePolls();
-            const guildPolls = activePolls.filter(poll => poll.guildId === interaction.guildId);
+            const singleActivePoll = await pollManager.getSingleActivePoll(interaction.guildId);
             
-            if (guildPolls.length === 0) {
-                return await interaction.reply({
-                    content: 'No polls found in this server.',
-                    ephemeral: true
-                });
+            if (singleActivePoll) {
+                pollId = singleActivePoll.id;
+            } else {
+                // Fallback to showing all polls if no single active poll
+                const allPolls = await pollManager.getAllPolls(interaction.guildId);
+                
+                if (allPolls.length === 0) {
+                    return await interaction.reply({
+                        content: 'No polls found in this server.',
+                        ephemeral: true
+                    });
+                }
+                
+                if (allPolls.length === 1) {
+                    pollId = allPolls[0].id;
+                } else {
+                    const pollList = allPolls.map(poll => `\`${poll.id}\` - ${poll.title} (${poll.phase})`).join('\n');
+                    return await interaction.reply({
+                        content: `Multiple polls found. Please specify which poll:\n${pollList}`,
+                        ephemeral: true
+                    });
+                }
             }
-            
-            if (guildPolls.length > 1) {
-                const pollList = guildPolls.map(poll => `\`${poll.id}\` - ${poll.title} (${poll.phase})`).join('\n');
-                return await interaction.reply({
-                    content: `Multiple polls found. Please specify which poll:\n${pollList}`,
-                    ephemeral: true
-                });
-            }
-            
-            pollId = guildPolls[0].id;
         }
         
         const poll = await getPoll(pollId);

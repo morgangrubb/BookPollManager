@@ -54,16 +54,18 @@ class PollManager {
         
         const snapshot = await db.collection('polls')
             .where('guildId', '==', guildId)
-            .orderBy('createdAt', 'desc')
             .get();
         
-        return snapshot.docs.map(doc => ({
+        const polls = snapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id,
             nominationEnd: doc.data().nominationEnd.toDate(),
             votingEnd: doc.data().votingEnd.toDate(),
             createdAt: doc.data().createdAt.toDate()
         }));
+        
+        // Sort by creation date descending in JavaScript instead of Firestore
+        return polls.sort((a, b) => b.createdAt - a.createdAt);
     }
     
     async nominateBook(pollId, nomination) {
@@ -216,6 +218,25 @@ class PollManager {
         }));
     }
     
+    async getSingleActivePoll(guildId) {
+        const activePolls = await this.getActivePolls();
+        const guildActivePolls = activePolls.filter(poll => poll.guildId === guildId);
+        
+        // Prioritize polls that haven't ended yet
+        const now = new Date();
+        const trulyActivePolls = guildActivePolls.filter(poll => 
+            (poll.phase === 'nomination' && now <= poll.nominationEnd) ||
+            (poll.phase === 'voting' && now <= poll.votingEnd)
+        );
+        
+        if (trulyActivePolls.length === 1) {
+            return trulyActivePolls[0];
+        }
+        
+        // If no truly active polls, return null (requires manual poll ID)
+        return null;
+    }
+    
     async removeNomination(pollId, nominationIndex) {
         const db = this.getDB();
         const pollRef = db.collection('polls').doc(pollId);
@@ -275,6 +296,7 @@ module.exports = {
     updatePollPhase: (pollId, newPhase) => pollManager.updatePollPhase(pollId, newPhase),
     completePoll: (pollId) => pollManager.completePoll(pollId),
     getActivePolls: () => pollManager.getActivePolls(),
+    getSingleActivePoll: (guildId) => pollManager.getSingleActivePoll(guildId),
     removeNomination: (pollId, nominationIndex) => pollManager.removeNomination(pollId, nominationIndex),
     removeUserNomination: (pollId, userId) => pollManager.removeUserNomination(pollId, userId),
     checkIfAllVoted: (pollId) => pollManager.checkIfAllVoted(pollId)
