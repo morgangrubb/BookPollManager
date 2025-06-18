@@ -403,15 +403,39 @@ async function handleStatus(interaction) {
         const embed = new EmbedBuilder()
             .setTitle(`📊 Poll Status: ${poll.title}`)
             .setDescription(poll.description || 'No description')
-            .addFields(
-                { name: '📍 Current Phase', value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1), inline: true },
-                { name: '📝 Nominations', value: poll.nominations.length.toString(), inline: true },
-                { name: '🗳️ Votes', value: poll.votes ? poll.votes.length.toString() : '0', inline: true },
-                { name: '📅 Nomination End', value: `<t:${Math.floor(poll.nominationEnd.getTime() / 1000)}:F>`, inline: false },
-                { name: '📅 Voting End', value: `<t:${Math.floor(poll.votingEnd.getTime() / 1000)}:F>`, inline: false }
-            )
             .setColor('#0099FF')
             .setTimestamp();
+
+        // Basic poll information
+        embed.addFields(
+            { name: '📍 Current Phase', value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1), inline: true },
+            { name: '📝 Nominations', value: poll.nominations.length.toString(), inline: true },
+            { name: '🗳️ Votes', value: poll.votes ? poll.votes.length.toString() : '0', inline: true }
+        );
+
+        // Add vote percentage for voting phase
+        if (poll.phase === 'voting') {
+            const totalVotes = poll.votes ? poll.votes.length : 0;
+            
+            // Get actual server member count (excluding bots)
+            const guild = interaction.guild;
+            const guildMembers = await guild.members.fetch();
+            const humanMembers = guildMembers.filter(member => !member.user.bot);
+            const totalMembers = humanMembers.size;
+            const votePercentage = Math.round((totalVotes / totalMembers) * 100);
+            
+            embed.addFields({
+                name: '📊 Vote Progress',
+                value: `**${votePercentage}%** complete (${totalVotes}/${totalMembers} members)`,
+                inline: false
+            });
+        }
+
+        // Add timestamps
+        embed.addFields(
+            { name: '📅 Nomination End', value: `<t:${Math.floor(poll.nominationEnd.getTime() / 1000)}:F>`, inline: false },
+            { name: '📅 Voting End', value: `<t:${Math.floor(poll.votingEnd.getTime() / 1000)}:F>`, inline: false }
+        );
 
         // Add numbered nominations list
         if (poll.nominations.length > 0) {
