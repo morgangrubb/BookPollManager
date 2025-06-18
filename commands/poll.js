@@ -59,8 +59,8 @@ module.exports = {
                 .setDescription('Check the status of a poll')
                 .addStringOption(option =>
                     option.setName('poll_id')
-                        .setDescription('Poll ID')
-                        .setRequired(true)))
+                        .setDescription('Poll ID (optional if only one active poll)')
+                        .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('end-nominations')
