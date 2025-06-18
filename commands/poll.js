@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { createPoll, nominateBook, submitVote, getPoll, getAllPolls, getActivePolls, updatePollPhase, completePoll, removeNomination, getGuildMemberCount } = require('../services/pollManager');
 const pollManager = require('../services/pollManager');
 
@@ -319,10 +319,10 @@ async function handleVote(interaction) {
             });
         }
         
-        // Create voting interface
+        // Create voting interface with modal
         const embed = new EmbedBuilder()
             .setTitle(`🗳️ Voting: ${poll.title}`)
-            .setDescription('Rank the books in order of preference (1 = most preferred)\n\nReply with your rankings like: `1,3,2` where the numbers correspond to the book positions below.')
+            .setDescription('Rank the books in order of preference (1 = most preferred)\n\nClick the "Vote" button below to open a private voting form.')
             .setColor('#0099FF');
         
         // Add nominated books
@@ -333,76 +333,21 @@ async function handleVote(interaction) {
                 inline: false
             });
         });
+
+        // Create vote button
+        const voteButton = new ButtonBuilder()
+            .setCustomId(`vote_${pollId}`)
+            .setLabel('📊 Vote')
+            .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder().addComponents(voteButton);
         
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-        
-        // Set up message collector for vote submission
-        const filter = m => m.author.id === interaction.user.id;
-        const collector = interaction.channel.createMessageCollector({
-            filter,
-            max: 1,
-            time: 300000 // 5 minutes
+        await interaction.reply({ 
+            embeds: [embed], 
+            components: [row],
+            ephemeral: true 
         });
-        
-        collector.on('collect', async (message) => {
-            try {
-                const rankings = message.content.split(',').map(r => parseInt(r.trim()));
-                
-                // Validate rankings
-                if (rankings.length !== poll.nominations.length) {
-                    return await message.reply('❌ Please rank all books!');
-                }
-                
-                const validNumbers = Array.from({length: poll.nominations.length}, (_, i) => i + 1);
-                const sortedRankings = [...rankings].sort();
-                
-                if (sortedRankings.join(',') !== validNumbers.join(',')) {
-                    return await message.reply('❌ Please use each number from 1 to ' + poll.nominations.length + ' exactly once!');
-                }
-                
-                await submitVote(pollId, interaction.user.id, rankings);
-                await message.reply('✅ Your vote has been recorded anonymously!');
-                
-                // Get updated poll to calculate vote percentage
-                const updatedPoll = await pollManager.getPoll(pollId);
-                const totalVotes = updatedPoll.votes ? updatedPoll.votes.length : 0;
-                
-                // Get actual server member count (excluding bots)
-                const guild = interaction.guild;
-                const guildMembers = await guild.members.fetch();
-                const humanMembers = guildMembers.filter(member => !member.user.bot);
-                const totalMembers = humanMembers.size;
-                const votePercentage = Math.round((totalVotes / totalMembers) * 100);
-                
-                // Announce vote progress
-                const progressEmbed = new EmbedBuilder()
-                    .setTitle('🗳️ Vote Progress Update')
-                    .setDescription(`**${votePercentage}%** of members have voted (${totalVotes}/${totalMembers})`)
-                    .addFields({ name: 'Poll', value: updatedPoll.title })
-                    .setColor('#FF9900')
-                    .setTimestamp();
-                
-                await interaction.channel.send({ embeds: [progressEmbed] });
-                
-                // Delete the user's ranking message for privacy
-                setTimeout(() => {
-                    message.delete().catch(() => {});
-                }, 5000);
-                
-            } catch (error) {
-                console.error('Error submitting vote:', error);
-                await message.reply(`❌ ${error.message}`);
-            }
-        });
-        
-        collector.on('end', (collected) => {
-            if (collected.size === 0) {
-                interaction.followUp({
-                    content: '⏰ Voting timeout. Please try again.',
-                    ephemeral: true
-                });
-            }
-        });
+
         
     } catch (error) {
         console.error('Error handling vote:', error);
