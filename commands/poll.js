@@ -362,6 +362,8 @@ async function handleStatus(interaction) {
     let pollId = interaction.options.getString('poll_id');
     
     try {
+        // Defer the reply to prevent timeout
+        await interaction.deferReply({ ephemeral: true });
         // Auto-detect poll if not provided - prioritize active polls
         if (!pollId) {
             const singleActivePoll = await pollManager.getSingleActivePoll(interaction.guildId);
@@ -373,7 +375,7 @@ async function handleStatus(interaction) {
                 const allPolls = await pollManager.getAllPolls(interaction.guildId);
                 
                 if (allPolls.length === 0) {
-                    return await interaction.reply({
+                    return await interaction.followUp({
                         content: 'No polls found in this server.',
                         ephemeral: true
                     });
@@ -383,7 +385,7 @@ async function handleStatus(interaction) {
                     pollId = allPolls[0].id;
                 } else {
                     const pollList = allPolls.map(poll => `\`${poll.id}\` - ${poll.title} (${poll.phase})`).join('\n');
-                    return await interaction.reply({
+                    return await interaction.followUp({
                         content: `Multiple polls found. Please specify which poll:\n${pollList}`,
                         ephemeral: true
                     });
@@ -417,18 +419,30 @@ async function handleStatus(interaction) {
         if (poll.phase === 'voting') {
             const totalVotes = poll.votes ? poll.votes.length : 0;
             
-            // Get actual server member count (excluding bots)
-            const guild = interaction.guild;
-            const guildMembers = await guild.members.fetch();
-            const humanMembers = guildMembers.filter(member => !member.user.bot);
-            const totalMembers = humanMembers.size;
-            const votePercentage = Math.round((totalVotes / totalMembers) * 100);
-            
-            embed.addFields({
-                name: '📊 Vote Progress',
-                value: `**${votePercentage}%** complete (${totalVotes}/${totalMembers} members)`,
-                inline: false
-            });
+            try {
+                // Get actual server member count (excluding bots) with timeout
+                const guild = interaction.guild;
+                const guildMembers = await Promise.race([
+                    guild.members.fetch(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                ]);
+                const humanMembers = guildMembers.filter(member => !member.user.bot);
+                const totalMembers = humanMembers.size;
+                const votePercentage = Math.round((totalVotes / totalMembers) * 100);
+                
+                embed.addFields({
+                    name: '📊 Vote Progress',
+                    value: `**${votePercentage}%** complete (${totalVotes}/${totalMembers} members)`,
+                    inline: false
+                });
+            } catch (error) {
+                // Fallback to just showing vote count if member fetching fails
+                embed.addFields({
+                    name: '📊 Vote Progress',
+                    value: `${totalVotes} votes received`,
+                    inline: false
+                });
+            }
         }
 
         // Add timestamps
@@ -458,14 +472,18 @@ async function handleStatus(interaction) {
             });
         }
         
-        await interaction.reply({ embeds: [embed] });
+        await interaction.followUp({ embeds: [embed] });
         
     } catch (error) {
         console.error('Error getting poll status:', error);
-        await interaction.reply({
-            content: `❌ ${error.message}`,
-            ephemeral: true
-        });
+        try {
+            await interaction.followUp({
+                content: `❌ ${error.message}`,
+                ephemeral: true
+            });
+        } catch (followUpError) {
+            console.error('Error sending follow-up:', followUpError);
+        }
     }
 }
 
