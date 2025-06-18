@@ -422,8 +422,11 @@ async function handleStatus(interaction) {
             .setTimestamp();
 
         // Basic poll information
+        const tallyMethodDisplay = poll.tallyMethod === 'chris-style' ? 'Chris Style (Top 3 Points)' : 'Ranked Choice (IRV)';
+        
         embed.addFields(
             { name: '📍 Current Phase', value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1), inline: true },
+            { name: '📊 Tally Method', value: tallyMethodDisplay, inline: true },
             { name: '📝 Nominations', value: poll.nominations.length.toString(), inline: true },
             { name: '🗳️ Votes', value: poll.votes ? poll.votes.length.toString() : '0', inline: true }
         );
@@ -485,8 +488,22 @@ async function handleStatus(interaction) {
                 inline: false
             });
             
-            // Final standings with runners-up
-            if (poll.results.finalStandings && poll.results.finalStandings.length > 1) {
+            // Final standings - different display for chris-style vs ranked choice
+            if (poll.tallyMethod === 'chris-style' && poll.results.finalScores && poll.results.finalScores.length > 1) {
+                let standingsText = '';
+                poll.results.finalScores.forEach((candidate, index) => {
+                    const position = index + 1;
+                    const emoji = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : '📍';
+                    const score = candidate.score || 0;
+                    standingsText += `${emoji} **${candidate.title}**: ${score} points\n`;
+                });
+                
+                embed.addFields({
+                    name: '📊 Final Scores',
+                    value: standingsText.trim(),
+                    inline: false
+                });
+            } else if (poll.results.finalStandings && poll.results.finalStandings.length > 1) {
                 let standingsText = '';
                 poll.results.finalStandings.forEach((candidate, index) => {
                     const position = index + 1;

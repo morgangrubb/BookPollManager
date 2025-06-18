@@ -124,6 +124,10 @@ The application is configured for Replit deployment with:
   - Improved ranked choice voting algorithm with final standings tracking
   - Added automatic voting phase announcements when nominations end (both scheduled and manual)
   - Comprehensive voting announcements include all nominated books for easy reference
+  - Implemented chris-style voting method as alternative to ranked choice
+  - Chris-style requires exactly 3 book selections (1st=3pts, 2nd=2pts, 3rd=1pt)
+  - Optional tally method selection during poll creation (ranked-choice or chris-style)
+  - Completed polls show appropriate results format based on tally method
   - Production ready for Discord servers
 
 ## Changelog
