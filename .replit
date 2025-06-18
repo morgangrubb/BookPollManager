@@ -22,6 +22,11 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm install discord.js firebase-admin node-cron dotenv && node index.js"
+waitForPort = 8080
 
 [deployment]
 run = ["sh", "-c", "npm install discord.js firebase-admin node-cron dotenv && node index.js"]
+
+[[ports]]
+localPort = 8080
+externalPort = 80

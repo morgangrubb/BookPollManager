@@ -133,6 +133,8 @@ The application is configured for Replit deployment with:
   - Ranked choice completion shows all books from winner to least voted option
   - Poll listings now ordered by creation timestamp (newest first) with relative timestamps
   - Enhanced poll list display includes tally method and creation date information
+  - Added HTTP health check server on port 8080 for monitoring and deployment compatibility
+  - Health endpoint returns bot status, connection state, timestamp, and uptime information
   - Production ready for Discord servers
 
 ## Changelog
