@@ -1,5 +1,8 @@
 // Full Discord Bot functionality using vanilla Cloudflare Workers
 import { DatabaseManager } from './db-manager.js';
+import { PollManager } from './services/pollManager.js';
+import { checkPollPhases } from './services/scheduler.js';
+import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './interactions/handlers.js';
 
 // Signature verification using Web Crypto API
 async function verifyDiscordSignature(body, signature, timestamp, publicKey) {
@@ -37,17 +40,27 @@ async function handlePollCommand(interaction, env) {
   const options = interaction.data.options?.[0]?.options || [];
   
   try {
-    const db = new DatabaseManager(env.POLLS_DB);
+    const pollManager = new PollManager(env);
     
     switch (subcommand) {
       case 'create':
-        return await handleCreatePoll(interaction, options, db);
+        return await handleCreatePoll(interaction, options, pollManager);
       case 'status':
-        return await handlePollStatus(interaction, options, db);
+        return await handlePollStatus(interaction, options, pollManager);
       case 'nominate':
-        return await handleNominate(interaction, options, db);
+        return await handleNominate(interaction, options, pollManager);
       case 'list':
-        return await handleListPolls(interaction, db);
+        return await handleListPolls(interaction, pollManager);
+      case 'withdraw-nomination':
+        return await handleWithdrawNomination(interaction, options, pollManager);
+      case 'vote':
+        return await handleVote(interaction, options, pollManager);
+      case 'remove-nomination':
+        return await handleRemoveNomination(interaction, options, pollManager);
+      case 'end-nominations':
+        return await handleEndNominations(interaction, options, pollManager);
+      case 'end-voting':
+        return await handleEndVoting(interaction, options, pollManager);
       default:
         return createResponse(`Unknown poll subcommand: ${subcommand}`);
     }
@@ -95,7 +108,7 @@ async function handleCreatePoll(interaction, options, pollManager) {
     votingDeadline: votingDeadline.toISOString()
   };
 
-  const poll = await db.createPoll(pollData);
+  const pollId = await pollManager.createPoll(pollData);
 
   return new Response(JSON.stringify({
     type: 4,
@@ -121,7 +134,7 @@ async function handleCreatePoll(interaction, options, pollManager) {
           }
         ],
         color: 0x00ff00,
-        footer: { text: `Poll ID: ${poll.id}` }
+        footer: { text: `Poll ID: ${pollId}` }
       }]
     }
   }), {
@@ -135,14 +148,14 @@ async function handlePollStatus(interaction, options, pollManager) {
   let pollId = getOptionValue(options, 'poll_id');
   
   if (!pollId) {
-    const activePolls = await db.getActivePolls(interaction.guild_id);
-    if (activePolls.length === 0) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll) {
       return createResponse('No active polls found. Please specify a poll ID.');
     }
-    pollId = activePolls[0].id;
+    pollId = activePoll.id;
   }
 
-  const poll = await db.getPoll(pollId);
+  const poll = await pollManager.getPoll(pollId);
   if (!poll) {
     return createResponse('Poll not found.');
   }
@@ -204,13 +217,11 @@ async function handleNominate(interaction, options, pollManager) {
   }
 
   if (!pollId) {
-    const activePolls = await db.getActivePolls(interaction.guild_id);
-    const nominationPolls = activePolls.filter(p => p.phase === 'nomination');
-    
-    if (nominationPolls.length === 0) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll || activePoll.phase !== 'nomination') {
       return createResponse('No active nomination phase found. Please specify a poll ID.');
     }
-    pollId = nominationPolls[0].id;
+    pollId = activePoll.id;
   }
 
   const nomination = {
@@ -221,14 +232,14 @@ async function handleNominate(interaction, options, pollManager) {
     username: interaction.member?.user?.username || interaction.user?.username
   };
 
-  await db.addNomination(pollId, nomination);
+  await pollManager.nominateBook(pollId, nomination);
 
   return createResponse(`✅ Successfully nominated "${title}" ${author ? `by ${author}` : ''}!`);
 }
 
 // List polls handler
 async function handleListPolls(interaction, pollManager) {
-  const activePolls = await db.getActivePolls(interaction.guild_id);
+  const activePolls = await pollManager.getAllPolls(interaction.guild_id);
   
   if (activePolls.length === 0) {
     return createResponse('📚 No active polls found in this server.');
