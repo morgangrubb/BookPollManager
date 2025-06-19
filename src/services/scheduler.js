@@ -66,13 +66,6 @@ export async function checkPollPhases(env) {
             console.error('Scheduler timed out - skipping this cycle');
         }
     }
-            }
-        }
-        
-    } catch (error) {
-        console.error('Error in checkPollPhases:', error);
-        throw error;
-    }
 }
 
 async function announceVotingPhase(poll, env) {
@@ -80,34 +73,41 @@ async function announceVotingPhase(poll, env) {
         // Send announcement to Discord channel
         const embed = {
             title: '🗳️ Voting Phase Started!',
-            description: `Poll: **${poll.title}**\n\nNomination phase has ended. Time to vote!`,
-            color: 0x00FF00,
+            description: `**${poll.title}**\n\nNomination phase has ended. Voting is now open!`,
+            color: 0xffaa00,
             fields: [
                 {
-                    name: 'Nominated Books',
-                    value: poll.nominations.length > 0 
-                        ? poll.nominations.map((book, index) => 
-                            `${index + 1}. **${book.title}**${book.author ? ` by ${book.author}` : ''}`
-                          ).join('\n')
-                        : 'No nominations',
+                    name: '📚 Nominated Books',
+                    value: poll.nominations.map((nom, idx) => 
+                        `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`
+                    ).join('\n') || 'No nominations',
                     inline: false
                 },
                 {
-                    name: 'Voting Method',
-                    value: poll.tallyMethod === 'chris-style' ? 'Chris Style (Top 3 picks)' : 'Ranked Choice',
+                    name: '📊 Voting Method',
+                    value: poll.tallyMethod === 'chris-style' ? 'Chris Style (Top 3 Points)' : 'Ranked Choice (IRV)',
                     inline: true
                 },
                 {
-                    name: 'Voting Deadline',
+                    name: '⏰ Voting Deadline',
                     value: `<t:${Math.floor(new Date(poll.votingDeadline).getTime() / 1000)}:F>`,
                     inline: true
                 }
             ],
-            timestamp: new Date().toISOString()
+            footer: { text: `Poll ID: ${poll.id}` }
         };
 
-        await sendDiscordMessage(poll.channelId, { embeds: [embed] }, env);
-        
+        const components = [{
+            type: 1, // Action Row
+            components: [{
+                type: 2, // Button
+                style: 1, // Primary
+                label: '🗳️ Vote Now',
+                custom_id: `vote_${poll.id}`
+            }]
+        }];
+
+        await sendDiscordMessage(poll.channelId, { embeds: [embed], components }, env);
     } catch (error) {
         console.error('Error announcing voting phase:', error);
     }
@@ -115,87 +115,82 @@ async function announceVotingPhase(poll, env) {
 
 async function announcePollCompletion(poll, env) {
     try {
-        const results = poll.results;
-        let embed;
-
-        if (poll.tallyMethod === 'chris-style') {
-            embed = createChrisStyleResultsEmbed(poll, results);
-        } else {
-            embed = createRankedChoiceResultsEmbed(poll, results);
+        if (!poll.results || !poll.results.winner) {
+            console.log('Poll completed but no results available');
+            return;
         }
 
+        const embed = poll.tallyMethod === 'chris-style' 
+            ? createChrisStyleResultsEmbed(poll, poll.results)
+            : createRankedChoiceResultsEmbed(poll, poll.results);
+
         await sendDiscordMessage(poll.channelId, { embeds: [embed] }, env);
-        
     } catch (error) {
         console.error('Error announcing poll completion:', error);
     }
 }
 
 function createChrisStyleResultsEmbed(poll, results) {
+    const sortedBooks = results.allBooks
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 10); // Show top 10
+
+    const resultsText = sortedBooks.map((book, idx) => {
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+        return `${medal} **${book.title}** ${book.author ? `by ${book.author}` : ''} - ${book.points} points`;
+    }).join('\n');
+
     return {
-        title: '🏆 Poll Complete - Chris Style Results',
-        description: `Poll: **${poll.title}**`,
-        color: 0xFFD700,
+        title: '🏆 Poll Results - Chris Style',
+        description: `**${poll.title}**\n\n${resultsText}`,
+        color: 0x00ff00,
         fields: [
             {
-                name: '🥇 Winner',
-                value: results.winner 
-                    ? `**${results.winner.title}**\n${results.winner.author ? `by ${results.winner.author}\n` : ''}[Link](${results.winner.link})`
-                    : 'No clear winner',
+                name: '👑 Winner',
+                value: `**${results.winner.title}** ${results.winner.author ? `by ${results.winner.author}` : ''} with ${results.winner.points} points!`,
                 inline: false
-            },
-            {
-                name: '📊 Final Standings',
-                value: results.standings.map((result, index) => {
-                    const position = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-                    return `${position} **${result.nomination.title}** - ${result.points} points`;
-                }).join('\n'),
-                inline: false
-            },
-            {
-                name: '📈 Participation',
-                value: `${results.totalVotes} total votes`,
-                inline: true
             }
         ],
+        footer: { text: `Poll ID: ${poll.id} | ${poll.votes.length} votes cast` },
         timestamp: new Date().toISOString()
     };
 }
 
 function createRankedChoiceResultsEmbed(poll, results) {
+    const finalStandings = results.finalStandings || [];
+    const resultsText = finalStandings.slice(0, 10).map((book, idx) => {
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+        return `${medal} **${book.title}** ${book.author ? `by ${book.author}` : ''}`;
+    }).join('\n');
+
     return {
-        title: '🏆 Poll Complete - Ranked Choice Results',
-        description: `Poll: **${poll.title}**`,
-        color: 0xFFD700,
+        title: '🏆 Poll Results - Ranked Choice',
+        description: `**${poll.title}**\n\n${resultsText}`,
+        color: 0x00ff00,
         fields: [
             {
-                name: '🥇 Winner',
-                value: results.winner 
-                    ? `**${results.winner.title}**\n${results.winner.author ? `by ${results.winner.author}\n` : ''}[Link](${results.winner.link})`
-                    : 'No clear winner',
+                name: '👑 Winner',
+                value: `**${results.winner.title}** ${results.winner.author ? `by ${results.winner.author}` : ''}`,
                 inline: false
             },
             {
-                name: '📊 Vote Distribution',
-                value: results.standings.map((result, index) => {
-                    const position = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-                    const percentage = results.totalVotes > 0 ? Math.round((result.votes / results.totalVotes) * 100) : 0;
-                    return `${position} **${result.nomination.title}** - ${result.votes} votes (${percentage}%)`;
-                }).join('\n'),
-                inline: false
-            },
-            {
-                name: '📈 Participation',
-                value: `${results.totalVotes} total votes`,
+                name: '📊 Elimination Rounds',
+                value: `${results.rounds?.length || 0} rounds`,
                 inline: true
             }
         ],
+        footer: { text: `Poll ID: ${poll.id} | ${poll.votes.length} votes cast` },
         timestamp: new Date().toISOString()
     };
 }
 
 async function sendDiscordMessage(channelId, content, env) {
     try {
+        if (!env.DISCORD_TOKEN) {
+            console.error('Discord token not available');
+            return;
+        }
+
         const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
             method: 'POST',
             headers: {
@@ -206,13 +201,9 @@ async function sendDiscordMessage(channelId, content, env) {
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`Discord API error: ${response.status} - ${error}`);
+            console.error('Failed to send Discord message:', await response.text());
         }
-
-        return await response.json();
     } catch (error) {
         console.error('Error sending Discord message:', error);
-        throw error;
     }
 }

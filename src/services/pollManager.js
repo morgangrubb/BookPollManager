@@ -57,18 +57,27 @@ export class PollManager {
             
             // Get nominations with timeout protection
             const nominationsQuery = this.db.prepare(`
-                SELECT * FROM nominations WHERE poll_id = ? ORDER BY created_at ASC
+                SELECT * FROM nominations WHERE poll_id = ? ORDER BY created_at ASC LIMIT 50
             `).bind(pollId);
             
             // Get votes with timeout protection
             const votesQuery = this.db.prepare(`
-                SELECT * FROM votes WHERE poll_id = ?
+                SELECT * FROM votes WHERE poll_id = ? ORDER BY created_at ASC LIMIT 100
             `).bind(pollId);
             
-            // Execute queries
-            const [nominationsResult, votesResult] = await Promise.all([
+            // Execute queries with timeout
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Database timeout')), 5000);
+            });
+            
+            const queryPromise = Promise.all([
                 nominationsQuery.all(),
                 votesQuery.all()
+            ]);
+            
+            const [nominationsResult, votesResult] = await Promise.race([
+                queryPromise,
+                timeoutPromise
             ]);
             
             // Build poll object safely
@@ -103,26 +112,41 @@ export class PollManager {
             
             // Process votes safely
             if (votesResult?.results) {
-                poll.votes = votesResult.results.map(v => ({
-                    userId: v.user_id,
-                    rankings: JSON.parse(v.rankings || '[]'),
-                    timestamp: v.created_at
-                }));
+                poll.votes = votesResult.results.map(v => {
+                    try {
+                        return {
+                            userId: v.user_id,
+                            rankings: JSON.parse(v.rankings || '[]'),
+                            timestamp: v.created_at
+                        };
+                    } catch (parseError) {
+                        console.error('Error parsing vote rankings:', parseError);
+                        return {
+                            userId: v.user_id,
+                            rankings: [],
+                            timestamp: v.created_at
+                        };
+                    }
+                });
             }
             
-            // Process results safely
-            if (pollResult.results_data) {
+            // Calculate results if completed and manageable size
+            if (poll.phase === 'completed' && poll.votes.length < 100) {
                 try {
-                    poll.results = JSON.parse(pollResult.results_data);
-                } catch (e) {
-                    console.error('Error parsing results data:', e);
+                    poll.results = this.calculateResults(poll);
+                } catch (resultError) {
+                    console.error('Error calculating results:', resultError);
+                    poll.results = null;
                 }
             }
             
             return poll;
         } catch (error) {
             console.error('Error getting poll:', error);
-            return null;
+            if (error.message === 'Database timeout') {
+                throw new Error('Request timed out. Please try again.');
+            }
+            throw error;
         }
     }
 
