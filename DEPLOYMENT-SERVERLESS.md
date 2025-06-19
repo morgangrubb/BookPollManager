@@ -171,9 +171,9 @@ wrangler dev
    - Ensure `DISCORD_PUBLIC_KEY` is correct
    - Check webhook URL in Discord Developer Portal
 
-2. **Firebase Connection Issues**
-   - Verify service account key format (JSON string)
-   - Check project ID matches Firebase console
+2. **Database Connection Issues**
+   - Verify D1 database ID in wrangler.toml
+   - Check database schema initialization
 
 3. **Cron Jobs Not Running**
    - Verify cron trigger syntax in `wrangler.toml`
@@ -218,12 +218,12 @@ Returns bot status and connectivity information.
 4. Monitor access logs regularly
 5. Implement rate limiting if needed
 
-### Firebase Security
+### Database Security
 
-1. Use service account with minimal permissions
-2. Enable Firestore security rules
-3. Monitor database access patterns
-4. Rotate service account keys regularly
+1. Use prepared statements for all queries
+2. Validate all inputs before database operations
+3. Monitor query performance and access patterns
+4. Regular backup verification
 
 ## Cost Optimization
 
@@ -236,7 +236,7 @@ Returns bot status and connectivity information.
 ### Optimization Tips
 
 1. Cache frequently accessed data
-2. Minimize Firebase API calls
+2. Optimize D1 queries with proper indexing
 3. Use efficient data serialization
 4. Implement request deduplication
 5. Monitor usage patterns
@@ -245,9 +245,10 @@ Returns bot status and connectivity information.
 
 ### Data Backup
 
-Firebase Firestore provides automatic backups, but consider:
+Cloudflare D1 provides automatic backups and replication:
 
-1. Export poll data regularly
+1. Point-in-time recovery available
+2. Regular backup verification recommended
 2. Backup critical configuration
 3. Document deployment procedures
 4. Test recovery scenarios

@@ -97,8 +97,10 @@ Serverless deployment on Cloudflare Workers:
 - June 19, 2025: Removed traditional Node.js version completely
   - Deleted all traditional Node.js files (index.js, commands/, services/, utils/, config/)
   - Removed Node.js dependencies (discord.js, dotenv, node-cron)
+  - Removed all Firebase integration and dependencies
   - Project now contains only serverless Cloudflare Workers implementation
   - Simplified project structure focused on /src directory
+  - Clean serverless-only codebase ready for Cloudflare Workers deployment
 - June 18, 2025: Discord bot fully operational with enhanced results display
   - Bot successfully connects to Discord as "Book Poll#3846"
   - Cloudflare D1 SQLite database created and working
