@@ -19,10 +19,6 @@ args = "Discord Bot"
 task = "workflow.run"
 args = "Discord Bot Dev"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Register Commands"
-
 [[workflows.workflow]]
 name = "Discord Bot"
 author = "agent"
@@ -40,14 +36,6 @@ author = "agent"
 task = "shell.exec"
 args = "wrangler dev --port 5000 --local"
 waitForPort = 5000
-
-[[workflows.workflow]]
-name = "Register Commands"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node register-commands.js"
 
 [deployment]
 run = ["sh", "-c", "npm install discord.js firebase-admin node-cron dotenv && node index.js"]
