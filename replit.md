@@ -139,6 +139,7 @@ The application is configured for Replit deployment with:
   - Three dropdown menus: First choice (always), Second choice (2+ nominations), Third choice (3+ nominations)
   - Temporary vote tracking system for multi-step dropdown selections with duplicate validation
   - Enhanced user experience with selection status feedback and automatic vote submission
+  - Firebase configuration now prioritizes X_FIREBASE_PROJECT_ID and X_FIREBASE_SERVICE_ACCOUNT_KEY variables
   - Production ready for Discord servers
 
 ## Changelog
