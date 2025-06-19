@@ -142,7 +142,7 @@ async function handleCron(event, env, ctx) {
 // Main handler
 export default {
   async fetch(request, env, ctx) {
-    return router.handle(request, env, ctx);
+    return router.fetch(request, env, ctx);
   },
   
   async scheduled(event, env, ctx) {
