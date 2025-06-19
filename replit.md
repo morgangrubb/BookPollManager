@@ -94,16 +94,18 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Discord slash commands successfully registered and bot fully operational
+  - Registered `/poll` command with Discord API including all subcommands (create, nominate, status, list)
+  - Fixed parameter alignment between Discord command definitions and bot handlers
+  - Bot now uses `nomination_end` and `voting_end` date parameters as originally designed
+  - Commands are live and discoverable in Discord servers where bot is installed
+  - Created command registration script and deployment documentation
+  - All functionality verified: poll creation, nomination, status checking, and listing
+  - Bot endpoint properly configured at: https://discord-book-poll-bot.miggles.workers.dev/interactions
 - June 19, 2025: Successfully restored full Discord bot functionality
   - Fixed "Missing required parameters" error by implementing auto-initializing database schema
   - Database manager now automatically creates required tables if they don't exist
-  - All core poll commands working: create, status, nominate, list
-  - Poll creation creates proper embeds with timestamps and poll IDs
-  - Nomination system working with automatic poll detection
-  - Poll status shows detailed information including nominated books
-  - Poll listing displays active polls with relative timestamps
   - Bot passes Discord verification (PING/PONG) and handles signature verification
-  - Deployed at: https://discord-book-poll-bot.miggles.workers.dev/interactions
 - June 19, 2025: Completely rebuilt Discord bot using vanilla Cloudflare Workers
   - Eliminated external dependency issues (discord-interactions, itty-router) causing Worker exceptions
   - Implemented signature verification using native Web Crypto API instead of external libraries
