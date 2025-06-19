@@ -234,6 +234,21 @@ async function handleNominate(interaction, options, pollManager) {
 
   await pollManager.nominateBook(pollId, nomination);
 
+  // Announce nomination to channel
+  try {
+    const poll = await pollManager.getPoll(pollId);
+    const channelId = poll.channelId || interaction.channel_id;
+    
+    if (channelId) {
+      const announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
+      
+      await sendDiscordMessage(channelId, announcementContent, env);
+    }
+  } catch (error) {
+    console.error('Failed to announce nomination:', error);
+    // Don't fail the nomination if announcement fails
+  }
+
   return createResponse(`✅ Successfully nominated "${title}" ${author ? `by ${author}` : ''}!`);
 }
 
@@ -270,6 +285,7 @@ async function handleListPolls(interaction, pollManager) {
 async function handleWithdrawNomination(interaction, options, pollManager) {
   const userId = interaction.member?.user?.id || interaction.user?.id;
   let pollId = getOptionValue(options, 'poll_id');
+  const env = pollManager.env;
 
   if (!pollId) {
     const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
@@ -280,7 +296,23 @@ async function handleWithdrawNomination(interaction, options, pollManager) {
   }
 
   try {
+    // Get nomination details before removal for announcement
+    const poll = await pollManager.getPoll(pollId);
+    const userNomination = poll.nominations?.find(nom => nom.userId === userId);
+    
     await pollManager.removeUserNomination(pollId, userId);
+    
+    // Announce withdrawal to channel
+    if (userNomination && poll.channelId) {
+      try {
+        const announcementContent = `📖 **Nomination Withdrawn**\n\n**${userNomination.title}**${userNomination.author ? ` by ${userNomination.author}` : ''}\n\nWithdrawn by <@${userId}> from **${poll.title}**`;
+        
+        await sendDiscordMessage(poll.channelId, announcementContent, env);
+      } catch (error) {
+        console.error('Failed to announce withdrawal:', error);
+      }
+    }
+    
     return createResponse('✅ Your nomination has been withdrawn.');
   } catch (error) {
     return createResponse(`❌ ${error.message}`);
@@ -439,6 +471,35 @@ async function handleEndVoting(interaction, options, pollManager) {
     });
   } catch (error) {
     return createResponse(`❌ ${error.message}`);
+  }
+}
+
+// Discord message sending helper
+async function sendDiscordMessage(channelId, content, env) {
+  const url = `https://discord.com/api/v10/channels/${channelId}/messages`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${env.DISCORD_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: content
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Discord API error:', response.status, error);
+      throw new Error(`Discord API error: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to send Discord message:', error);
+    throw error;
   }
 }
 

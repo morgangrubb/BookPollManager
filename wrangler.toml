@@ -2,8 +2,7 @@ name = "discord-book-poll-bot"
 main = "src/index.js"
 compatibility_date = "2023-12-01"
 
-[build]
-command = "node src/deploy-commands.js"
+
 
 [vars]
 ENVIRONMENT = "production"
