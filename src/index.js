@@ -36,9 +36,18 @@ router.post('/interactions', async (request, env) => {
       const timestamp = request.headers.get('x-signature-timestamp');
       const body = await request.text();
 
+      console.log('Interaction request:', {
+        signature: signature ? 'present' : 'missing',
+        timestamp: timestamp ? 'present' : 'missing',
+        bodyLength: body.length,
+        method: request.method,
+        url: request.url
+      });
+
       // Verify the request signature
       const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
       if (!isValidRequest) {
+        console.error('Invalid request signature');
         return new Response('Bad request signature', { status: 401 });
       }
 
@@ -46,7 +55,9 @@ router.post('/interactions', async (request, env) => {
 
       // Handle ping
       if (interaction.type === InteractionType.PING) {
+        console.log('Received PING, responding with PONG');
         return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+          status: 200,
           headers: { 'Content-Type': 'application/json' }
         });
       }

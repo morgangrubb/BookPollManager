@@ -5,6 +5,10 @@ compatibility_date = "2023-12-01"
 [vars]
 ENVIRONMENT = "production"
 
+# Note: Add secrets using: wrangler secret put DISCORD_PUBLIC_KEY
+# wrangler secret put DISCORD_TOKEN
+# wrangler secret put DISCORD_CLIENT_ID
+
 [[d1_databases]]
 binding = "POLLS_DB"
 database_name = "discord-polls"
