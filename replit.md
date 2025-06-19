@@ -94,6 +94,14 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Implemented deployment-integrated command registration system
+  - Created automatic Discord command registration during Cloudflare Worker deployment
+  - Replaced separate register-commands.js with src/deploy-commands.js that runs during build
+  - Commands are automatically registered with every `wrangler deploy` execution
+  - Updated wrangler.toml with build command integration for seamless deployment
+  - All 9 subcommands automatically deployed and synchronized with code changes
+  - Eliminated need for separate command registration workflows or manual steps
+  - Deployment logs show command registration success with subcommand verification
 - June 19, 2025: Fully integrated existing services and restored all advanced poll commands
   - Integrated PollManager, scheduler, and voting utilities (chrisStyle.js, rankedChoice.js) into vanilla index.js
   - Restored all advanced commands: withdraw-nomination, vote, remove-nomination, end-nominations, end-voting
