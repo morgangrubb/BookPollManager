@@ -94,6 +94,12 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Refactored code organization for better maintainability
+  - Moved all poll handler functions from index.js to interactions/handlers.js
+  - Removed outdated index-*.js files (index-full.js, index-minimal.js, index-simple.js, index-vanilla.js)
+  - Consolidated all poll command logic in centralized handlers module
+  - Improved code separation between routing (index.js) and business logic (handlers.js)
+  - Enhanced maintainability and readability of codebase
 - June 19, 2025: Added channel announcements for nominations and withdrawals
   - Implemented automatic channel announcements when users nominate books
   - Added withdrawal announcements when users remove their nominations
