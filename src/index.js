@@ -7,14 +7,19 @@ import { checkPollPhases } from './services/scheduler.js';
 
 const router = Router();
 
-// Health check endpoint
+// Health check endpoint - completely synchronous
 router.get('/health', () => {
   return new Response(JSON.stringify({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'discord-bot-serverless'
+    service: 'discord-book-poll-bot',
+    version: '2.0-serverless'
   }), {
-    headers: { 'Content-Type': 'application/json' }
+    status: 200,
+    headers: { 
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    }
   });
 });
 
@@ -114,11 +119,23 @@ router.post('/interactions', async (request, env) => {
 
 // Cron job handler for poll phase transitions
 async function handleCron(event, env, ctx) {
+  console.log('Cron trigger activated');
+  
   try {
-    await checkPollPhases(env);
+    // Add timeout protection for cron jobs
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Cron timeout')), 25000); // 25 second timeout for cron
+    });
+
+    const cronPromise = checkPollPhases(env);
+
+    await Promise.race([cronPromise, timeoutPromise]);
     console.log('Cron job completed successfully');
   } catch (error) {
     console.error('Error in cron job:', error);
+    if (error.message === 'Cron timeout') {
+      console.error('Cron job timed out - this may indicate database performance issues');
+    }
   }
 }
 

@@ -3,31 +3,69 @@ import { PollManager } from './pollManager.js';
 
 export async function checkPollPhases(env) {
     try {
-        const pollManager = new PollManager(env);
-        const activePolls = await pollManager.getActivePolls();
-        
-        const now = new Date();
-        
-        for (const poll of activePolls) {
-            let updated = false;
+        // Add timeout protection for scheduler
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Scheduler timeout')), 20000); // 20 second timeout
+        });
+
+        const schedulerPromise = (async () => {
+            const pollManager = new PollManager(env);
             
-            // Check if nomination phase should end
-            if (poll.phase === 'nomination' && new Date(poll.nominationDeadline) <= now) {
-                await pollManager.updatePollPhase(poll.id, 'voting');
-                await announceVotingPhase(poll, env);
-                updated = true;
+            // Get active polls with simplified query
+            const activePolls = await pollManager.db.prepare(`
+                SELECT id, phase, nomination_deadline, voting_deadline, channel_id, guild_id, title, tally_method
+                FROM polls 
+                WHERE phase IN ('nomination', 'voting') 
+                LIMIT 10
+            `).all();
+            
+            const polls = activePolls.results || [];
+            console.log(`Checking ${polls.length} active polls`);
+            
+            const now = new Date();
+            
+            for (const poll of polls) {
+                try {
+                    const nominationDeadline = new Date(poll.nomination_deadline);
+                    const votingDeadline = new Date(poll.voting_deadline);
+                    
+                    // Check if nomination phase should end
+                    if (poll.phase === 'nomination' && now >= nominationDeadline) {
+                        console.log(`Ending nomination phase for poll ${poll.id}`);
+                        await pollManager.updatePollPhase(poll.id, 'voting');
+                        
+                        // Get full poll data for announcement
+                        const fullPoll = await pollManager.getPoll(poll.id);
+                        if (fullPoll) {
+                            await announceVotingPhase(fullPoll, env);
+                        }
+                    }
+                    
+                    // Check if voting phase should end
+                    else if (poll.phase === 'voting' && now >= votingDeadline) {
+                        console.log(`Ending voting phase for poll ${poll.id}`);
+                        await pollManager.updatePollPhase(poll.id, 'completed');
+                        
+                        // Get full poll data for announcement
+                        const fullPoll = await pollManager.getPoll(poll.id);
+                        if (fullPoll) {
+                            await announcePollCompletion(fullPoll, env);
+                        }
+                    }
+                } catch (pollError) {
+                    console.error(`Error processing poll ${poll.id}:`, pollError);
+                    // Continue with next poll instead of failing entirely
+                }
             }
-            
-            // Check if voting phase should end
-            if (poll.phase === 'voting' && new Date(poll.votingDeadline) <= now) {
-                await pollManager.updatePollPhase(poll.id, 'completed');
-                const completedPoll = await pollManager.getPoll(poll.id);
-                await announcePollCompletion(completedPoll, env);
-                updated = true;
-            }
-            
-            if (updated) {
-                console.log(`Poll ${poll.id} phase updated`);
+        })();
+
+        await Promise.race([schedulerPromise, timeoutPromise]);
+    } catch (error) {
+        console.error('Error checking poll phases:', error);
+        if (error.message === 'Scheduler timeout') {
+            console.error('Scheduler timed out - skipping this cycle');
+        }
+    }
             }
         }
         
