@@ -74,7 +74,7 @@ export const pollCommand = {
                     },
                     {
                         name: 'link',
-                        description: 'Link to book info',
+                        description: 'Link to book',
                         type: 3, // STRING
                         required: false
                     },
@@ -88,7 +88,7 @@ export const pollCommand = {
             },
             {
                 name: 'list',
-                description: 'List all polls in this server',
+                description: 'List all polls',
                 type: 1 // SUB_COMMAND
             },
             {
@@ -207,128 +207,325 @@ export const pollCommand = {
                 throw new Error('Failed to create poll');
             }
 
-        const embed = {
-            title: '📚 New Book Poll Created!',
-            description: `**${poll.title}**`,
-            color: 0x0099FF,
-            fields: [
-                {
-                    name: '📝 Current Phase',
-                    value: 'Nomination',
-                    inline: true
-                },
-                {
-                    name: '🗳️ Voting Method',
-                    value: tallyMethod === 'chris-style' ? 'Chris Style (Top 3 picks)' : 'Ranked Choice',
-                    inline: true
-                },
-                {
-                    name: '⏰ Nomination Deadline',
-                    value: `<t:${Math.floor(nominationDeadline.getTime() / 1000)}:F>`,
-                    inline: false
-                },
-                {
-                    name: '⏰ Voting Deadline',
-                    value: `<t:${Math.floor(votingDeadline.getTime() / 1000)}:F>`,
-                    inline: false
-                },
-                {
-                    name: '🆔 Poll ID',
-                    value: `\`${poll.id}\``,
-                    inline: true
-                }
-            ],
-            timestamp: new Date().toISOString()
-        };
-
-        return new Response(JSON.stringify({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-                embeds: [embed]
-            }
-        }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    },
-
-    async handleStatus(interaction, options, pollManager) {
-        let pollId = options.find(opt => opt.name === 'poll_id')?.value;
-        
-        // Auto-detect poll if not provided
-        if (!pollId) {
-            const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
-            if (!activePoll) {
-                const allPolls = await pollManager.getAllPolls(interaction.guild_id);
-                if (allPolls.length === 0) {
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: '📚 No polls found in this server.',
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-                
-                // Sort polls by creation timestamp (newest first)
-                const sortedPolls = allPolls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                const pollList = sortedPolls.map(poll => 
-                    `\`${poll.id}\` - ${poll.title} - <t:${Math.floor(new Date(poll.createdAt).getTime() / 1000)}:R>`
-                ).join('\n');
-                
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: `Multiple polls found. Please specify which poll:\n${pollList}`,
-                        flags: 64 // Ephemeral
+            const embed = {
+                title: '📚 New Book Poll Created!',
+                description: `**${poll.title}**`,
+                color: 0x0099FF,
+                fields: [
+                    {
+                        name: '📝 Current Phase',
+                        value: 'Nomination',
+                        inline: true
+                    },
+                    {
+                        name: '📊 Tally Method',
+                        value: tallyMethod === 'chris-style' ? 'Chris Style' : 'Ranked Choice',
+                        inline: true
+                    },
+                    {
+                        name: '⏰ Nomination Deadline',
+                        value: `<t:${Math.floor(nominationDeadline.getTime() / 1000)}:F>`,
+                        inline: false
+                    },
+                    {
+                        name: '🗳️ Voting Deadline',
+                        value: `<t:${Math.floor(votingDeadline.getTime() / 1000)}:F>`,
+                        inline: false
                     }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            pollId = activePoll.id;
-        }
-        
-        const poll = await pollManager.getPoll(pollId);
-        if (!poll) {
+                ],
+                footer: { text: `Poll ID: ${poll.id}` },
+                timestamp: new Date().toISOString()
+            };
+
             return new Response(JSON.stringify({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: 'Poll not found!',
-                    flags: 64 // Ephemeral
+                    embeds: [embed]
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error('Error creating poll:', error);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `Error creating poll: ${error.message}`,
+                    flags: 64
                 }
             }), {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
-
-        const embed = await this.createStatusEmbed(poll);
-        const components = poll.phase === 'voting' ? [{
-            type: 1, // Action Row
-            components: [{
-                type: 2, // Button
-                style: 1, // Primary
-                label: '🗳️ Vote',
-                custom_id: `vote_${poll.id}`
-            }]
-        }] : [];
-
-        return new Response(JSON.stringify({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-                embeds: [embed],
-                components: components
-            }
-        }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
     },
 
-    async createStatusEmbed(poll) {
+    async handleStatus(interaction, options, pollManager) {
+        try {
+            let pollId = options.find(opt => opt.name === 'poll_id')?.value;
+            
+            if (!pollId) {
+                const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+                if (activePoll) {
+                    pollId = activePoll.id;
+                } else {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'No active polls found. Please specify a poll ID.',
+                            flags: 64
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            }
+
+            const poll = await pollManager.getPoll(pollId);
+            if (!poll) {
+                return new Response(JSON.stringify({
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: 'Poll not found.',
+                        flags: 64
+                    }
+                }), {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            const embed = this.createStatusEmbed(poll);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    embeds: [embed]
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error('Error getting poll status:', error);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `Error getting status: ${error.message}`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
+    async handleNominate(interaction, options, pollManager) {
+        try {
+            const title = options.find(opt => opt.name === 'title')?.value;
+            const author = options.find(opt => opt.name === 'author')?.value;
+            const link = options.find(opt => opt.name === 'link')?.value;
+            let pollId = options.find(opt => opt.name === 'poll_id')?.value;
+
+            if (!pollId) {
+                const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+                if (activePoll && activePoll.phase === 'nomination') {
+                    pollId = activePoll.id;
+                } else {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'No active nomination phase found. Please specify a poll ID.',
+                            flags: 64
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            }
+
+            const nomination = {
+                title,
+                author,
+                link,
+                userId: interaction.member?.user?.id || interaction.user?.id,
+                username: interaction.member?.user?.username || interaction.user?.username
+            };
+
+            await pollManager.nominateBook(pollId, nomination);
+
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `✅ Successfully nominated "${title}" ${author ? `by ${author}` : ''}!`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error('Error nominating book:', error);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `Error: ${error.message}`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
+    async handleList(interaction, pollManager) {
+        try {
+            const polls = await pollManager.getAllPolls(interaction.guild_id);
+            
+            if (polls.length === 0) {
+                return new Response(JSON.stringify({
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: '📚 No polls found in this server.',
+                        flags: 64
+                    }
+                }), {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            const pollList = polls.map(poll => 
+                `\`${poll.id}\` - **${poll.title}** (${poll.phase}) - <t:${Math.floor(new Date(poll.createdAt).getTime() / 1000)}:R>`
+            ).join('\n');
+
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    embeds: [{
+                        title: '📚 Server Polls',
+                        description: pollList,
+                        color: 0x0099FF,
+                        timestamp: new Date().toISOString()
+                    }],
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error('Error listing polls:', error);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `Error listing polls: ${error.message}`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
+    async handleEndNominations(interaction, options, pollManager) {
+        try {
+            let pollId = options.find(opt => opt.name === 'poll_id')?.value;
+            
+            if (!pollId) {
+                const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+                if (activePoll && activePoll.phase === 'nomination') {
+                    pollId = activePoll.id;
+                } else {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'No active nomination phase found.',
+                            flags: 64
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            }
+
+            await pollManager.updatePollPhase(pollId, 'voting');
+
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: '✅ Nomination phase ended. Voting phase has begun!',
+                    components: [{
+                        type: 1, // Action Row
+                        components: [{
+                            type: 2, // Button
+                            style: 1, // Primary
+                            label: '🗳️ Vote Now',
+                            custom_id: `vote_${pollId}`
+                        }]
+                    }]
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error('Error ending nominations:', error);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `Error: ${error.message}`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
+    async handleEndVoting(interaction, options, pollManager) {
+        try {
+            let pollId = options.find(opt => opt.name === 'poll_id')?.value;
+            
+            if (!pollId) {
+                const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+                if (activePoll && activePoll.phase === 'voting') {
+                    pollId = activePoll.id;
+                } else {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'No active voting phase found.',
+                            flags: 64
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            }
+
+            const completedPoll = await pollManager.updatePollPhase(pollId, 'completed');
+
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: '✅ Voting phase ended. Poll completed!',
+                    embeds: [this.createStatusEmbed(completedPoll)]
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error('Error ending voting:', error);
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `Error: ${error.message}`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
+    createStatusEmbed(poll) {
         const embed = {
-            title: `📊 Poll Status: ${poll.title}`,
-            color: poll.phase === 'completed' ? 0xFFD700 : poll.phase === 'voting' ? 0x00FF00 : 0x0099FF,
+            title: `📚 ${poll.title}`,
+            color: poll.phase === 'completed' ? 0x00ff00 : 
+                   poll.phase === 'voting' ? 0xffaa00 : 0x0099ff,
             fields: [
                 {
                     name: '📝 Phase',
@@ -336,7 +533,7 @@ export const pollCommand = {
                     inline: true
                 },
                 {
-                    name: '🗳️ Method',
+                    name: '📊 Tally Method',
                     value: poll.tallyMethod === 'chris-style' ? 'Chris Style' : 'Ranked Choice',
                     inline: true
                 },
@@ -346,350 +543,44 @@ export const pollCommand = {
                     inline: true
                 }
             ],
+            footer: { text: `Poll ID: ${poll.id}` },
             timestamp: new Date().toISOString()
         };
 
+        // Add nominations list
         if (poll.nominations.length > 0) {
+            const nominationsList = poll.nominations.map((nom, idx) => 
+                `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`
+            ).join('\n');
+            
             embed.fields.push({
                 name: '📖 Nominated Books',
-                value: poll.nominations.map((book, index) => 
-                    `${index + 1}. **${book.title}**${book.author ? ` by ${book.author}` : ''}`
-                ).join('\n'),
+                value: nominationsList,
                 inline: false
             });
         }
 
-        if (poll.phase === 'nomination') {
+        // Add voting information
+        if (poll.phase === 'voting') {
             embed.fields.push({
-                name: '⏰ Nomination Deadline',
-                value: `<t:${Math.floor(new Date(poll.nominationDeadline).getTime() / 1000)}:F>`,
-                inline: false
+                name: '🗳️ Votes Cast',
+                value: poll.votes.length.toString(),
+                inline: true
             });
-        } else if (poll.phase === 'voting') {
-            embed.fields.push(
-                {
-                    name: '🗳️ Votes Cast',
-                    value: `${poll.votes.length} votes`,
-                    inline: true
-                },
-                {
-                    name: '⏰ Voting Deadline',
-                    value: `<t:${Math.floor(new Date(poll.votingDeadline).getTime() / 1000)}:F>`,
-                    inline: false
-                }
-            );
-        } else if (poll.phase === 'completed' && poll.results) {
-            if (poll.tallyMethod === 'chris-style') {
+        }
+
+        // Add results for completed polls
+        if (poll.phase === 'completed' && poll.results) {
+            const results = poll.results;
+            if (results.winner) {
                 embed.fields.push({
-                    name: '🏆 Chris Style Results',
-                    value: poll.results.standings.map((result, index) => {
-                        const position = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-                        return `${position} **${result.nomination.title}** - ${result.points} points`;
-                    }).join('\n'),
-                    inline: false
-                });
-            } else {
-                embed.fields.push({
-                    name: '🏆 Ranked Choice Results',
-                    value: poll.results.standings.map((result, index) => {
-                        const position = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-                        const percentage = poll.results.totalVotes > 0 ? Math.round((result.votes / poll.results.totalVotes) * 100) : 0;
-                        return `${position} **${result.nomination.title}** - ${result.votes} votes (${percentage}%)`;
-                    }).join('\n'),
+                    name: '🏆 Winner',
+                    value: `**${results.winner.title}** ${results.winner.author ? `by ${results.winner.author}` : ''}`,
                     inline: false
                 });
             }
         }
 
         return embed;
-    },
-
-    async handleNominate(interaction, options, pollManager) {
-        const title = options.find(opt => opt.name === 'title').value;
-        const author = options.find(opt => opt.name === 'author')?.value || '';
-        const link = options.find(opt => opt.name === 'link')?.value || '';
-        let pollId = options.find(opt => opt.name === 'poll_id')?.value;
-
-        // Auto-detect poll if not provided
-        if (!pollId) {
-            const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
-            if (!activePoll) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'No active poll found. Please specify a poll ID or create a new poll.',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            pollId = activePoll.id;
-        }
-
-        const nomination = {
-            title,
-            author,
-            link,
-            userId: interaction.member.user.id,
-            username: interaction.member.user.username,
-            timestamp: new Date().toISOString()
-        };
-
-        const poll = await pollManager.nominateBook(pollId, nomination);
-
-        return new Response(JSON.stringify({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-                content: `✅ **${title}** has been nominated for the poll "${poll.title}"!`,
-                flags: 64 // Ephemeral
-            }
-        }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    },
-
-    async handleList(interaction, pollManager) {
-        const polls = await pollManager.getAllPolls(interaction.guild_id);
-        
-        if (polls.length === 0) {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: '📚 No polls found in this server.',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        // Sort polls by creation timestamp (newest first)
-        const sortedPolls = polls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
-        const embed = {
-            title: '📚 Book Polls',
-            color: 0x0099FF,
-            fields: [],
-            timestamp: new Date().toISOString()
-        };
-        
-        sortedPolls.forEach(poll => {
-            const status = poll.phase === 'completed' ? '✅' : 
-                          poll.phase === 'voting' ? '🗳️' : '📝';
-            
-            const tallyMethodDisplay = poll.tallyMethod === 'chris-style' ? 'Chris Style' : 'Ranked Choice';
-            
-            embed.fields.push({
-                name: `${status} ${poll.title}`,
-                value: `ID: \`${poll.id}\` | Phase: ${poll.phase} | Method: ${tallyMethodDisplay}\nNominations: ${poll.nominations.length} | Created: <t:${Math.floor(new Date(poll.createdAt).getTime() / 1000)}:R>`,
-                inline: false
-            });
-        });
-        
-        return new Response(JSON.stringify({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-                embeds: [embed]
-            }
-        }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    },
-
-    async handleEndNominations(interaction, options, pollManager) {
-        let pollId = options.find(opt => opt.name === 'poll_id')?.value;
-        
-        // Auto-detect poll if not provided
-        if (!pollId) {
-            const activePolls = await pollManager.getActivePolls();
-            const guildNominationPolls = activePolls.filter(poll => 
-                poll.guildId === interaction.guild_id && poll.phase === 'nomination'
-            );
-            
-            if (guildNominationPolls.length === 0) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'No active nomination polls found in this server.',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            if (guildNominationPolls.length > 1) {
-                const sortedPolls = guildNominationPolls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                const pollList = sortedPolls.map(poll => 
-                    `\`${poll.id}\` - ${poll.title} - <t:${Math.floor(new Date(poll.createdAt).getTime() / 1000)}:R>`
-                ).join('\n');
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            pollId = guildNominationPolls[0].id;
-        }
-        
-        const poll = await pollManager.getPoll(pollId);
-        if (!poll) {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: 'Poll not found!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        if (poll.phase !== 'nomination') {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: 'This poll is not in the nomination phase!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        if (poll.creatorId !== interaction.member.user.id) {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: 'Only the poll creator can end the nomination phase early!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        await pollManager.updatePollPhase(pollId, 'voting');
-        
-        return new Response(JSON.stringify({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-                content: `✅ Nomination phase ended for poll "${poll.title}". Voting phase has begun!`
-            }
-        }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    },
-
-    async handleEndVoting(interaction, options, pollManager) {
-        let pollId = options.find(opt => opt.name === 'poll_id')?.value;
-        
-        // Auto-detect poll if not provided
-        if (!pollId) {
-            const activePolls = await pollManager.getActivePolls();
-            const guildVotingPolls = activePolls.filter(poll => 
-                poll.guildId === interaction.guild_id && poll.phase === 'voting'
-            );
-            
-            if (guildVotingPolls.length === 0) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'No active voting polls found in this server.',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            if (guildVotingPolls.length > 1) {
-                const sortedPolls = guildVotingPolls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                const pollList = sortedPolls.map(poll => 
-                    `\`${poll.id}\` - ${poll.title} - <t:${Math.floor(new Date(poll.createdAt).getTime() / 1000)}:R>`
-                ).join('\n');
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: `Multiple active polls found. Please specify which poll:\n${pollList}`,
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            pollId = guildVotingPolls[0].id;
-        }
-        
-        const poll = await pollManager.getPoll(pollId);
-        if (!poll) {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: 'Poll not found!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        if (poll.phase !== 'voting') {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: 'This poll is not in the voting phase!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        if (poll.creatorId !== interaction.member.user.id) {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: 'Only the poll creator can end the voting phase early!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        
-        await pollManager.updatePollPhase(pollId, 'completed');
-        const completedPoll = await pollManager.getPoll(pollId);
-        
-        const embed = {
-            title: '🏆 Poll Completed',
-            description: `Poll: **${completedPoll.title}**`,
-            color: 0xFFD700,
-            fields: [
-                {
-                    name: '🥇 Winner',
-                    value: completedPoll.results.winner ? 
-                        `**${completedPoll.results.winner.title}**\n${completedPoll.results.winner.link ? `[Link](${completedPoll.results.winner.link})` : ''}` : 
-                        'No clear winner'
-                }
-            ],
-            timestamp: new Date().toISOString()
-        };
-        
-        return new Response(JSON.stringify({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-                embeds: [embed]
-            }
-        }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
     }
 };

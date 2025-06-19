@@ -57,413 +57,282 @@ export async function handleButtonInteraction(interaction, env) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-            
-            // For chris-style voting, use dropdown menus
-            if (poll.tallyMethod === 'chris-style') {
-                const maxBooks = poll.nominations.length;
-                const requiredChoices = Math.min(3, maxBooks);
-                
-                // Create book options for dropdowns
-                const bookOptions = poll.nominations.map((book, index) => ({
-                    label: book.title,
-                    description: book.author ? `by ${book.author}` : 'Book nomination',
-                    value: `${index + 1}`
-                }));
-                
-                // Create dropdown components
-                const components = [];
-                
-                // First choice dropdown (always visible)
-                components.push({
-                    type: 1, // Action Row
-                    components: [{
-                        type: 3, // Select Menu
-                        custom_id: `first_choice_${pollId}`,
-                        placeholder: 'Select your first choice',
-                        options: bookOptions
-                    }]
-                });
-                
-                // Second choice dropdown (visible if 2+ nominations)
-                if (maxBooks >= 2) {
-                    components.push({
-                        type: 1, // Action Row
-                        components: [{
-                            type: 3, // Select Menu
-                            custom_id: `second_choice_${pollId}`,
-                            placeholder: 'Select your second choice',
-                            options: bookOptions
-                        }]
-                    });
+
+                // Generate voting interface based on tally method
+                if (poll.tallyMethod === 'chris-style') {
+                    return generateChrisStyleVotingInterface(poll, userId);
+                } else {
+                    return generateRankedChoiceVotingInterface(poll);
                 }
-                
-                // Third choice dropdown (visible if 3+ nominations)
-                if (maxBooks >= 3) {
-                    components.push({
-                        type: 1, // Action Row
-                        components: [{
-                            type: 3, // Select Menu
-                            custom_id: `third_choice_${pollId}`,
-                            placeholder: 'Select your third choice',
-                            options: bookOptions
-                        }]
-                    });
-                }
-                
-                const pointsText = requiredChoices === 3 ? '1st=3pts, 2nd=2pts, 3rd=1pt' :
-                                 requiredChoices === 2 ? '1st=2pts, 2nd=1pt' : '1st=1pt';
-                
-                const embed = {
-                    title: `Vote: ${poll.title}`,
-                    description: `Select your top ${requiredChoices} book${requiredChoices > 1 ? 's' : ''} in order of preference.\n\n**Scoring:** ${pointsText}`,
-                    color: 0x0099FF,
-                    fields: [{
-                        name: 'Instructions',
-                        value: `Choose ${requiredChoices === 1 ? 'your favorite book' : `up to ${requiredChoices} different books`}. Each choice must be different.`
-                    }]
-                };
-                
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        embeds: [embed],
-                        components: components,
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-            } else {
-                // Use modal for ranked choice voting
-                const modal = {
-                    title: `Vote: ${poll.title}`,
-                    custom_id: `vote_modal_${pollId}`,
-                    components: [
-                        {
-                            type: 1, // Action Row
-                            components: [{
-                                type: 4, // Text Input
-                                custom_id: 'rankings',
-                                label: 'Enter your rankings (e.g., 2,1,3)',
-                                style: 1, // Short
-                                placeholder: 'Enter rankings separated by commas',
-                                required: true,
-                                max_length: 50
-                            }]
-                        },
-                        {
-                            type: 1, // Action Row
-                            components: [{
-                                type: 4, // Text Input
-                                custom_id: 'instructions',
-                                label: 'Book Options (Reference Only)',
-                                style: 2, // Paragraph
-                                value: poll.nominations.map((book, index) => 
-                                    `${index + 1}. ${book.title}`
-                                ).join('\n'),
-                                required: false
-                            }]
-                        }
-                    ]
-                };
-                
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.MODAL,
-                    data: modal
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
+            })();
+
+            return await Promise.race([handlerPromise, timeoutPromise]);
         } catch (error) {
             console.error('Error handling vote button:', error);
             return new Response(JSON.stringify({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: `Error: ${error.message}`,
-                    flags: 64 // Ephemeral
+                    content: error.message === 'Handler timeout' ? 
+                        'Request timed out. Please try again.' : 
+                        'An error occurred. Please try again.',
+                    flags: 64
                 }
             }), {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
     }
-    
-    return new Response(JSON.stringify({ error: 'Unknown button interaction' }), {
-        status: 400,
+
+    return new Response(JSON.stringify({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            content: 'Unknown button interaction',
+            flags: 64
+        }
+    }), {
         headers: { 'Content-Type': 'application/json' }
     });
 }
 
 export async function handleSelectMenuInteraction(interaction, env) {
-    const customId = interaction.data.custom_id;
-    
-    if (customId.startsWith('first_choice_') || customId.startsWith('second_choice_') || customId.startsWith('third_choice_')) {
-        const parts = customId.split('_');
-        const choiceType = parts[0]; // 'first', 'second', or 'third'
-        const actualPollId = parts.slice(2).join('_'); // everything after 'choice_'
-        
-        try {
+    try {
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Handler timeout')), 8000);
+        });
+
+        const handlerPromise = (async () => {
             const pollManager = new PollManager(env);
-            const poll = await pollManager.getPoll(actualPollId);
+            const customId = interaction.data.custom_id;
             
-            if (!poll) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'Poll not found!',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
+            if (customId.startsWith('chris_vote_')) {
+                return await handleChrisStyleVoting(interaction, env, pollManager);
             }
             
-            // Check if user already voted
-            const userId = interaction.member.user.id;
-            const existingVote = poll.votes ? poll.votes.find(v => v.userId === userId) : null;
-            if (existingVote) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'You have already voted in this poll!',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            const selectedValue = interaction.data.values[0];
-            const userKey = `${userId}_${actualPollId}`;
-            
-            // Get existing voting session from D1
-            let session = await pollManager.getVotingSession(userKey);
-            const selections = session ? session.selections : {};
-            
-            // Update the specific choice
-            selections[choiceType] = selectedValue;
-            
-            // Save updated selections to D1
-            await pollManager.setVotingSession(userKey, actualPollId, userId, selections);
-            
-            const maxBooks = poll.nominations.length;
-            const requiredChoices = Math.min(3, maxBooks);
-            
-            // Check if we have enough selections to submit vote
-            const choiceTypes = ['first', 'second', 'third'].slice(0, requiredChoices);
-            const hasAllRequired = choiceTypes.every(type => selections[type]);
-            
-            if (hasAllRequired) {
-                // Validate no duplicates
-                const values = Object.values(selections);
-                const uniqueValues = [...new Set(values)];
-                
-                if (uniqueValues.length !== values.length) {
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: 'Each choice must be different! Please select different books for each position.',
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-                
-                // Convert selections to rankings array for submission
-                const rankings = [];
-                for (const type of choiceTypes) {
-                    rankings.push(parseInt(selections[type]));
-                }
-                
-                // Submit the vote
-                await pollManager.submitVote(actualPollId, userId, rankings);
-                
-                // Clean up temporary selections from D1
-                await pollManager.deleteVotingSession(userKey);
-                
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: '✅ Your vote has been recorded anonymously!',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                
-            } else {
-                // Show current selection status
-                const selectionStatus = choiceTypes.map(type => {
-                    const bookNum = selections[type];
-                    const bookTitle = bookNum ? poll.nominations[parseInt(bookNum) - 1]?.title : 'Not selected';
-                    const choiceName = type.charAt(0).toUpperCase() + type.slice(1);
-                    return `${choiceName} choice: ${bookTitle}`;
-                }).join('\n');
-                
-                const currentSelections = Object.keys(selections).length;
-                const remaining = requiredChoices - currentSelections;
-                
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: `Selection updated!\n\n**Current selections:**\n${selectionStatus}\n\n${remaining > 0 ? `Please make ${remaining} more selection${remaining > 1 ? 's' : ''} to submit your vote.` : 'Ready to submit!'}`,
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-        } catch (error) {
-            console.error('Error handling select menu:', error);
             return new Response(JSON.stringify({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: `Error: ${error.message}`,
-                    flags: 64 // Ephemeral
+                    content: 'Unknown select menu interaction',
+                    flags: 64
                 }
             }), {
                 headers: { 'Content-Type': 'application/json' }
             });
-        }
+        })();
+
+        return await Promise.race([handlerPromise, timeoutPromise]);
+    } catch (error) {
+        console.error('Error handling select menu:', error);
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: error.message === 'Handler timeout' ? 
+                    'Request timed out. Please try again.' : 
+                    'An error occurred. Please try again.',
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}
+
+export async function handleModalSubmit(interaction, env) {
+    try {
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Handler timeout')), 8000);
+        });
+
+        const handlerPromise = (async () => {
+            const pollManager = new PollManager(env);
+            
+            if (interaction.data.custom_id.startsWith('ranked_vote_')) {
+                return await handleRankedChoiceSubmission(interaction, env, pollManager);
+            }
+            
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: 'Unknown modal submission',
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        })();
+
+        return await Promise.race([handlerPromise, timeoutPromise]);
+    } catch (error) {
+        console.error('Error handling modal submit:', error);
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: error.message === 'Handler timeout' ? 
+                    'Request timed out. Please try again.' : 
+                    'An error occurred. Please try again.',
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}
+
+async function handleChrisStyleVoting(interaction, env, pollManager) {
+    const customId = interaction.data.custom_id;
+    const parts = customId.split('_');
+    const position = parts[2]; // first, second, third
+    const pollId = parts[3];
+    const selectedValue = interaction.data.values[0];
+    const userId = interaction.member?.user?.id || interaction.user?.id;
+    
+    // Get or create voting session
+    const userKey = `${userId}_${pollId}`;
+    let session = await pollManager.getVotingSession(userKey);
+    
+    if (!session) {
+        session = {
+            pollId,
+            userId,
+            selections: []
+        };
     }
     
-    return new Response(JSON.stringify({ error: 'Unknown select menu interaction' }), {
-        status: 400,
+    // Update selection
+    const existingIndex = session.selections.findIndex(s => s.position === position);
+    if (existingIndex >= 0) {
+        session.selections[existingIndex].bookIndex = parseInt(selectedValue);
+    } else {
+        session.selections.push({
+            position,
+            bookIndex: parseInt(selectedValue)
+        });
+    }
+    
+    // Save session
+    await pollManager.setVotingSession(userKey, pollId, userId, session.selections);
+    
+    // Check if vote is complete
+    const poll = await pollManager.getPoll(pollId);
+    const requiredSelections = Math.min(3, poll.nominations.length);
+    const hasAllSelections = session.selections.length >= requiredSelections;
+    
+    if (hasAllSelections) {
+        // Submit vote
+        const rankings = session.selections
+            .sort((a, b) => {
+                const order = { first: 0, second: 1, third: 2 };
+                return order[a.position] - order[b.position];
+            })
+            .map(s => s.bookIndex);
+        
+        await pollManager.submitVote(pollId, userId, rankings);
+        await pollManager.deleteVotingSession(userKey);
+        
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: '✅ Your vote has been submitted successfully!',
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+    
+    // Update interface with current selections
+    return generateChrisStyleVotingInterface(poll, userId, session.selections);
+}
+
+async function handleRankedChoiceSubmission(interaction, env, pollManager) {
+    const pollId = interaction.data.custom_id.replace('ranked_vote_', '');
+    const userId = interaction.member?.user?.id || interaction.user?.id;
+    
+    // Parse rankings from modal input
+    const rankingsInput = interaction.data.components[0].components[0].value;
+    const rankings = rankingsInput.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
+    
+    await pollManager.submitVote(pollId, userId, rankings);
+    
+    return new Response(JSON.stringify({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            content: '✅ Your vote has been submitted successfully!',
+            flags: 64
+        }
+    }), {
         headers: { 'Content-Type': 'application/json' }
     });
 }
 
-export async function handleModalSubmit(interaction, env) {
-    if (interaction.data.custom_id.startsWith('vote_modal_')) {
-        const pollId = interaction.data.custom_id.replace('vote_modal_', '');
-        
-        try {
-            const pollManager = new PollManager(env);
-            const poll = await pollManager.getPoll(pollId);
-            
-            if (!poll) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'Poll not found!',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            const rankingsInput = interaction.data.components[0].components[0].value;
-            const rankings = rankingsInput.split(',').map(r => parseInt(r.trim()));
-            
-            // Validate rankings based on tally method
-            if (poll.tallyMethod === 'chris-style') {
-                const maxBooks = poll.nominations.length;
-                const requiredChoices = Math.min(3, maxBooks);
-                
-                if (rankings.length !== requiredChoices) {
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: `Please pick exactly ${requiredChoices} book${requiredChoices > 1 ? 's' : ''}!`,
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-                
-                // Validate book numbers
-                const maxBookNumber = poll.nominations.length;
-                for (const ranking of rankings) {
-                    if (ranking < 1 || ranking > maxBookNumber) {
-                        return new Response(JSON.stringify({
-                            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                            data: {
-                                content: `Invalid book number: ${ranking}. Please use numbers 1-${maxBookNumber}.`,
-                                flags: 64 // Ephemeral
-                            }
-                        }), {
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-                }
-                
-                // Check for duplicates
-                const uniqueRankings = [...new Set(rankings)];
-                if (uniqueRankings.length !== requiredChoices) {
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: `Each book can only be chosen once! Please pick ${requiredChoices} different books.`,
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-            } else {
-                // Ranked choice: rank all books
-                if (rankings.length !== poll.nominations.length) {
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: `Please rank all ${poll.nominations.length} books!`,
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-                
-                const validNumbers = Array.from({length: poll.nominations.length}, (_, i) => i + 1);
-                const sortedRankings = [...rankings].sort();
-                
-                if (sortedRankings.join(',') !== validNumbers.join(',')) {
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: `Please use each number from 1 to ${poll.nominations.length} exactly once!`,
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-            }
-            
-            await pollManager.submitVote(pollId, interaction.member.user.id, rankings);
-            
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: '✅ Your vote has been recorded anonymously!',
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-        } catch (error) {
-            console.error('Error processing vote modal:', error);
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: `Error: ${error.message}`,
-                    flags: 64 // Ephemeral
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    }
+function generateChrisStyleVotingInterface(poll, userId, existingSelections = []) {
+    const components = [];
+    const nominations = poll.nominations;
+    const maxSelections = Math.min(3, nominations.length);
     
-    return new Response(JSON.stringify({ error: 'Unknown modal interaction' }), {
-        status: 400,
+    const positions = ['first', 'second', 'third'].slice(0, maxSelections);
+    
+    positions.forEach((position, index) => {
+        const currentSelection = existingSelections.find(s => s.position === position);
+        const options = nominations.map((nom, idx) => ({
+            label: nom.title.substring(0, 100),
+            value: (idx + 1).toString(),
+            description: nom.author ? `by ${nom.author}`.substring(0, 100) : undefined,
+            default: currentSelection?.bookIndex === (idx + 1)
+        }));
+        
+        components.push({
+            type: 1, // Action Row
+            components: [{
+                type: 3, // Select Menu
+                custom_id: `chris_vote_${position}_${poll.id}`,
+                placeholder: `Select your ${position} choice`,
+                options
+            }]
+        });
+    });
+    
+    const selectedCount = existingSelections.length;
+    const statusText = selectedCount > 0 ? 
+        `Selected ${selectedCount}/${maxSelections} choices` : 
+        'Make your selections below';
+    
+    return new Response(JSON.stringify({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            content: `📊 **Chris-Style Voting** - ${poll.title}\n\n${statusText}`,
+            components,
+            flags: 64
+        }
+    }), {
+        headers: { 'Content-Type': 'application/json' }
+    });
+}
+
+function generateRankedChoiceVotingInterface(poll) {
+    const nominations = poll.nominations;
+    const nominationsList = nominations.map((nom, idx) => 
+        `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`
+    ).join('\n');
+    
+    return new Response(JSON.stringify({
+        type: InteractionResponseType.MODAL,
+        data: {
+            title: 'Ranked Choice Voting',
+            custom_id: `ranked_vote_${poll.id}`,
+            components: [{
+                type: 1, // Action Row
+                components: [{
+                    type: 4, // Text Input
+                    custom_id: 'rankings',
+                    label: 'Enter your rankings (comma-separated numbers)',
+                    style: 2, // Paragraph
+                    placeholder: 'Example: 3,1,2 (ranks book 3 first, book 1 second, book 2 third)',
+                    required: true,
+                    max_length: 100
+                }]
+            }]
+        }
+    }), {
         headers: { 'Content-Type': 'application/json' }
     });
 }
