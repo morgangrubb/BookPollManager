@@ -94,17 +94,20 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
-- June 19, 2025: Completely resolved Cloudflare Workers timeout issues
-  - Fixed "/health" endpoint timeout by making it completely synchronous (no async operations)
+- June 19, 2025: Completely rebuilt Discord bot using vanilla Cloudflare Workers
+  - Eliminated external dependency issues (discord-interactions, itty-router) causing Worker exceptions
+  - Implemented signature verification using native Web Crypto API instead of external libraries
+  - Created custom vanilla router and database manager for improved reliability
+  - Successfully deployed working Discord bot that passes verification (PING/PONG)
+  - Restored full poll functionality including create, status, nominate, and list commands
+  - Fixed all timeout issues by removing problematic external packages
+  - Bot now responds properly to Discord interactions without Worker exceptions
+  - Health endpoint working correctly with JSON responses
+- June 19, 2025: Fixed Cloudflare Workers timeout issues
   - Added comprehensive timeout protection to all database operations (5-8 second limits)
   - Optimized D1 database query handling with Promise.race timeout management
   - Fixed infinite loop potential in poll data aggregation with LIMIT clauses
   - Added error handling for malformed JSON in database results
-  - Simplified database queries to avoid complex joins and hanging operations
-  - Fixed syntax errors in scheduler.js that prevented development server startup
-  - Added timeout protection to cron jobs (25 second limit) and interaction handlers
-  - Successfully eliminated "Workers runtime canceled this request" errors
-  - Development server now starts properly with Wrangler on port 5000
 - June 19, 2025: Removed traditional Node.js version completely
   - Deleted all traditional Node.js files (index.js, commands/, services/, utils/, config/)
   - Removed Node.js dependencies (discord.js, dotenv, node-cron)
