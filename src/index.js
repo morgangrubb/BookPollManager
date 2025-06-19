@@ -104,8 +104,8 @@ async function handleCreatePoll(interaction, options, pollManager) {
     channelId: interaction.channel_id,
     creatorId: interaction.member?.user?.id || interaction.user?.id,
     tallyMethod,
-    nominationDeadline: nominationDeadline.toISOString(),
-    votingDeadline: votingDeadline.toISOString()
+    nominationEnd: nominationDeadline.toISOString(),
+    votingEnd: votingDeadline.toISOString()
   };
 
   const pollId = await pollManager.createPoll(pollData);
@@ -115,7 +115,7 @@ async function handleCreatePoll(interaction, options, pollManager) {
     data: {
       embeds: [{
         title: '📚 New Book Poll Created!',
-        description: `**${poll.title}**\n\nNomination phase has started!`,
+        description: `**${title}**\n\nNomination phase has started!`,
         fields: [
           {
             name: '📝 Nomination Deadline',

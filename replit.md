@@ -94,6 +94,15 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Fully integrated existing services and restored all advanced poll commands
+  - Integrated PollManager, scheduler, and voting utilities (chrisStyle.js, rankedChoice.js) into vanilla index.js
+  - Restored all advanced commands: withdraw-nomination, vote, remove-nomination, end-nominations, end-voting
+  - Added proper creator-only permissions for poll management commands
+  - Integrated button and select menu interaction handlers for voting interfaces
+  - Updated cron handler to use scheduler service for automated poll phase transitions
+  - Successfully registered all 9 poll subcommands with Discord API
+  - Bot now supports both chris-style and ranked-choice voting with proper UI interactions
+  - Complete serverless architecture with full Discord bot functionality operational
 - June 19, 2025: Discord slash commands successfully registered and bot fully operational
   - Registered `/poll` command with Discord API including all subcommands (create, nominate, status, list)
   - Fixed parameter alignment between Discord command definitions and bot handlers

@@ -31,8 +31,8 @@ export class PollManager {
                 pollData.creatorId,
                 'nomination',
                 pollData.tallyMethod || 'ranked-choice',
-                pollData.nominationDeadline,
-                pollData.votingDeadline,
+                pollData.nominationEnd || pollData.nominationDeadline,
+                pollData.votingEnd || pollData.votingDeadline,
                 now,
                 now
             ).run();
