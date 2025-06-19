@@ -66,7 +66,7 @@ async function handlePollCommand(interaction, env) {
     }
   } catch (error) {
     console.error('Error handling poll command:', error);
-    return createResponse('An error occurred while processing your request.');
+    return createResponse(`❌ ${error.message}`);
   }
 }
 

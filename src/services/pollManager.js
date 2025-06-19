@@ -215,13 +215,23 @@ export class PollManager {
 
     async nominateBook(pollId, nomination) {
         try {
-            // Check if user already nominated with a direct query
+            // Check poll exists and is in nomination phase
+            const poll = await this.getPoll(pollId);
+            if (!poll) {
+                throw new Error('Poll not found');
+            }
+
+            if (poll.phase !== 'nomination') {
+                throw new Error('Poll is not in nomination phase');
+            }
+
+            // Check if user already nominated with detailed info
             const existingNomination = await this.db.prepare(`
-                SELECT id FROM nominations WHERE poll_id = ? AND user_id = ?
+                SELECT title, author FROM nominations WHERE poll_id = ? AND user_id = ?
             `).bind(pollId, nomination.userId).first();
             
             if (existingNomination) {
-                throw new Error('You have already nominated a book for this poll');
+                throw new Error(`You have already nominated "${existingNomination.title}"${existingNomination.author ? ` by ${existingNomination.author}` : ''} for this poll`);
             }
 
             // Insert nomination
