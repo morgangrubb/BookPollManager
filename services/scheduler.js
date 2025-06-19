@@ -13,17 +13,8 @@ function startScheduler(client) {
     
     discordClient = client;
     
-    // Run every minute to check for poll phase transitions
-    cron.schedule('* * * * *', async () => {
-        try {
-            await checkPollPhases();
-        } catch (error) {
-            console.error('Error in scheduled poll check:', error);
-        }
-    });
-    
+    console.log('⚠️  Scheduler disabled - Firebase integration removed. Use serverless version with D1 database.');
     schedulerStarted = true;
-    console.log('Poll scheduler started - checking every minute');
 }
 
 async function checkPollPhases() {

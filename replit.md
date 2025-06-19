@@ -54,13 +54,10 @@ Both architectures maintain the same core functionality with environment-specifi
   - Integration with ranked choice voting algorithm
 - **Rationale**: Centralized poll logic ensures consistency and makes the system easier to maintain and test
 
-### Firebase Integration (services/firebase.js)
-- **Purpose**: Database operations and Firebase SDK initialization
-- **Key Features**:
-  - Firestore database connection management
-  - Document-based storage for polls, nominations, and votes
-  - Real-time data synchronization capabilities
-- **Rationale**: Firebase provides scalable, real-time database functionality without requiring server infrastructure management
+### Database Integration (Deprecated)
+- **Previous**: Firebase Firestore integration (removed June 19, 2025)
+- **Current**: Serverless Cloudflare D1 SQLite database in /src directory
+- **Migration**: Traditional Node.js version no longer functional, use serverless version
 
 ### Scheduler Service (services/scheduler.js)
 - **Purpose**: Automated poll phase transitions based on timestamps
@@ -116,6 +113,11 @@ The application is configured for Replit deployment with:
 
 ## Recent Changes
 
+- June 19, 2025: Removed Firebase integration completely from traditional Node.js version
+  - Uninstalled firebase-admin dependency
+  - Disabled all Firebase-dependent functionality
+  - Traditional version now shows deprecation warnings
+  - Users directed to use serverless Cloudflare Workers version with D1 database
 - June 18, 2025: Discord bot fully operational with enhanced results display
   - Bot successfully connects to Discord as "Book Poll#3846"
   - Firebase Firestore database created and working
