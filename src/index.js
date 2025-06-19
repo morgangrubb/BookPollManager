@@ -58,7 +58,7 @@ async function handlePollCommand(interaction, env) {
 }
 
 // Create poll handler
-async function handleCreatePoll(interaction, options, db) {
+async function handleCreatePoll(interaction, options, pollManager) {
   const title = getOptionValue(options, 'title');
   const nominationEnd = getOptionValue(options, 'nomination_end');
   const votingEnd = getOptionValue(options, 'voting_end');
@@ -131,7 +131,7 @@ async function handleCreatePoll(interaction, options, db) {
 }
 
 // Poll status handler
-async function handlePollStatus(interaction, options, db) {
+async function handlePollStatus(interaction, options, pollManager) {
   let pollId = getOptionValue(options, 'poll_id');
   
   if (!pollId) {
@@ -193,7 +193,7 @@ async function handlePollStatus(interaction, options, db) {
 }
 
 // Nominate handler
-async function handleNominate(interaction, options, db) {
+async function handleNominate(interaction, options, pollManager) {
   const title = getOptionValue(options, 'title');
   const author = getOptionValue(options, 'author');
   const link = getOptionValue(options, 'link');
@@ -227,7 +227,7 @@ async function handleNominate(interaction, options, db) {
 }
 
 // List polls handler
-async function handleListPolls(interaction, db) {
+async function handleListPolls(interaction, pollManager) {
   const activePolls = await db.getActivePolls(interaction.guild_id);
   
   if (activePolls.length === 0) {
