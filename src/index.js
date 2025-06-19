@@ -60,17 +60,30 @@ async function handlePollCommand(interaction, env) {
 // Create poll handler
 async function handleCreatePoll(interaction, options, db) {
   const title = getOptionValue(options, 'title');
-  const nominationHours = getOptionValue(options, 'nomination_hours');
-  const votingHours = getOptionValue(options, 'voting_hours');
+  const nominationEnd = getOptionValue(options, 'nomination_end');
+  const votingEnd = getOptionValue(options, 'voting_end');
   const tallyMethod = getOptionValue(options, 'tally_method') || 'ranked-choice';
 
-  if (!title || !nominationHours || !votingHours) {
+  if (!title || !nominationEnd || !votingEnd) {
     return createResponse('Missing required parameters for poll creation.');
   }
 
+  const nominationDeadline = new Date(nominationEnd);
+  const votingDeadline = new Date(votingEnd);
+
+  // Validate dates
+  if (isNaN(nominationDeadline.getTime()) || isNaN(votingDeadline.getTime())) {
+    return createResponse('Invalid date format. Please use YYYY-MM-DD HH:MM format.');
+  }
+
   const now = new Date();
-  const nominationDeadline = new Date(now.getTime() + nominationHours * 60 * 60 * 1000);
-  const votingDeadline = new Date(nominationDeadline.getTime() + votingHours * 60 * 60 * 1000);
+  if (nominationDeadline <= now) {
+    return createResponse('Nomination deadline must be in the future.');
+  }
+
+  if (votingDeadline <= nominationDeadline) {
+    return createResponse('Voting deadline must be after the nomination deadline.');
+  }
 
   const pollData = {
     title,
