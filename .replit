@@ -4,25 +4,6 @@ modules = ["nodejs-20", "postgresql-16"]
 channel = "stable-24_05"
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Discord Bot"
-
-[[workflows.workflow]]
-name = "Discord Bot"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm install discord.js firebase-admin node-cron dotenv && node index.js"
-waitForPort = 8080
 
 [deployment]
 run = ["sh", "-c", "npm install discord.js firebase-admin node-cron dotenv && node index.js"]

@@ -2,70 +2,55 @@
 
 ## Overview
 
-This is a Discord bot designed to facilitate book club polls using ranked choice voting (Instant Runoff Voting). Originally built as a traditional Node.js application, it has been converted to a serverless architecture for deployment on Cloudflare Workers. The bot allows users to create polls, nominate books during a nomination phase, and then vote using ranked preferences during a voting phase. The system automatically transitions between phases based on configured timestamps and calculates winners using the IRV algorithm.
+This is a serverless Discord bot designed to facilitate book club polls using ranked choice voting (Instant Runoff Voting). Built specifically for Cloudflare Workers deployment with D1 SQLite database. The bot allows users to create polls, nominate books during a nomination phase, and then vote using ranked preferences during a voting phase. The system automatically transitions between phases based on configured timestamps and calculates winners using the IRV algorithm.
 
-**Current State**: The project includes both the original Node.js implementation and a complete serverless version optimized for Cloudflare Workers deployment.
+**Current State**: Pure serverless architecture optimized for Cloudflare Workers deployment with D1 database.
 
 ## System Architecture
 
-The project now supports two deployment models:
+Serverless architecture built for Cloudflare Workers:
 
-### Original Node.js Architecture (Traditional)
-- **Discord Bot Layer**: Gateway API with persistent WebSocket connection
-- **Service Layer**: Manages business logic for polls, Firebase operations, and scheduling
-- **Utility Layer**: Implements ranked choice voting calculations
-- **Configuration Layer**: Centralizes environment variable management
-- **Scheduler**: Node-cron with 1-minute intervals for poll phase transitions
-
-### Serverless Architecture (Cloudflare Workers)
-- **HTTP Webhook Layer**: Discord interactions via webhooks instead of Gateway API
+- **HTTP Webhook Layer**: Discord interactions via webhooks
 - **Serverless Functions**: Stateless request handlers for each interaction
 - **Cloudflare D1**: SQLite database for all poll data storage
 - **Cloudflare Cron**: 5-minute intervals for automated poll transitions
 - **D1 Sessions**: Temporary voting data stored in database with TTL cleanup
 
-Both architectures maintain the same core functionality with environment-specific optimizations.
-
 ## Key Components
 
-### Discord Bot (index.js)
-- **Purpose**: Main entry point and Discord client initialization
+### Serverless Handler (src/index.js)
+- **Purpose**: Main entry point for Cloudflare Workers
 - **Key Features**: 
-  - Sets up Discord intents for guild messages and interactions
-  - Registers slash commands dynamically
-  - Handles interaction routing to appropriate command handlers
-- **Rationale**: Centralized bot initialization ensures proper setup of all services before handling user interactions
+  - HTTP webhook handling for Discord interactions
+  - Cron-based poll phase transitions
+  - Stateless request processing
+- **Rationale**: Serverless architecture provides automatic scaling and zero maintenance overhead
 
-### Commands System (commands/poll.js)
+### Commands System (src/commands/poll.js)
 - **Purpose**: Implements slash command interface for poll management
 - **Key Features**:
   - Create new polls with nomination and voting deadlines
   - Nominate books during nomination phase
   - Submit ranked votes during voting phase
   - View poll status and results
-- **Rationale**: Slash commands provide a modern, discoverable interface that's easier for users than text-based commands
+- **Rationale**: Slash commands provide a modern, discoverable interface
 
-### Poll Management Service (services/pollManager.js)
+### Poll Management Service (src/services/pollManager.js)
 - **Purpose**: Core business logic for poll lifecycle management
 - **Key Features**:
-  - CRUD operations for polls
+  - D1 database operations for polls
   - Phase transition management (nomination → voting → completed)
   - Vote collection and validation
   - Integration with ranked choice voting algorithm
-- **Rationale**: Centralized poll logic ensures consistency and makes the system easier to maintain and test
+- **Rationale**: Centralized poll logic with D1 database integration
 
-### Database Integration (Deprecated)
-- **Previous**: Firebase Firestore integration (removed June 19, 2025)
-- **Current**: Serverless Cloudflare D1 SQLite database in /src directory
-- **Migration**: Traditional Node.js version no longer functional, use serverless version
-
-### Scheduler Service (services/scheduler.js)
-- **Purpose**: Automated poll phase transitions based on timestamps
+### Scheduler Service (src/services/scheduler.js)
+- **Purpose**: Automated poll phase transitions via Cloudflare Cron
 - **Key Features**:
-  - Cron-based polling every minute
+  - Cron triggers every 5 minutes
   - Automatic phase transitions when deadlines are reached
   - Poll completion and result calculation
-- **Rationale**: Automated transitions ensure polls progress without manual intervention, improving user experience
+- **Rationale**: Serverless cron ensures reliable automated transitions
 
 ### Ranked Choice Voting (utils/rankedChoice.js)
 - **Purpose**: Implements Instant Runoff Voting algorithm
@@ -99,25 +84,25 @@ Both architectures maintain the same core functionality with environment-specifi
 
 ## Deployment Strategy
 
-The application is configured for Replit deployment with:
+Serverless deployment on Cloudflare Workers:
 
-- **Runtime**: Node.js 20 with Nix package management
-- **Auto-installation**: Dependencies installed on startup via npm
-- **Environment Variables**: Secure configuration through .env files
-- **Workflow Automation**: Parallel execution setup for Discord bot service
+- **Runtime**: Cloudflare Workers V8 JavaScript runtime
+- **Database**: Cloudflare D1 SQLite database
+- **Webhooks**: Discord interaction webhooks
+- **Cron**: Cloudflare scheduled events
 
 **Environment Requirements**:
-- **Traditional (Deprecated)**: Discord bot token only
-- **Serverless (Active)**: Discord webhook credentials, Cloudflare D1 database
+- Discord webhook credentials (TOKEN, PUBLIC_KEY, CLIENT_ID)
+- Cloudflare D1 database binding
 - Optional guild ID for server-specific commands
 
 ## Recent Changes
 
-- June 19, 2025: Removed Firebase integration completely from traditional Node.js version
-  - Uninstalled firebase-admin dependency
-  - Disabled all Firebase-dependent functionality
-  - Traditional version now shows deprecation warnings
-  - Users directed to use serverless Cloudflare Workers version with D1 database
+- June 19, 2025: Removed traditional Node.js version completely
+  - Deleted all traditional Node.js files (index.js, commands/, services/, utils/, config/)
+  - Removed Node.js dependencies (discord.js, dotenv, node-cron)
+  - Project now contains only serverless Cloudflare Workers implementation
+  - Simplified project structure focused on /src directory
 - June 18, 2025: Discord bot fully operational with enhanced results display
   - Bot successfully connects to Discord as "Book Poll#3846"
   - Firebase Firestore database created and working
