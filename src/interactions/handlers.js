@@ -2,9 +2,6 @@
 import { InteractionResponseType } from 'discord-interactions';
 import { PollManager } from '../services/pollManager.js';
 
-// Store user voting selections temporarily in KV
-const userVoteSelections = new Map();
-
 export async function handleButtonInteraction(interaction, env) {
     if (interaction.data.custom_id.startsWith('vote_')) {
         const pollId = interaction.data.custom_id.replace('vote_', '');
@@ -231,14 +228,15 @@ export async function handleSelectMenuInteraction(interaction, env) {
             const selectedValue = interaction.data.values[0];
             const userKey = `${userId}_${actualPollId}`;
             
-            // Store selection in KV (or memory for now)
-            if (!userVoteSelections.has(userKey)) {
-                userVoteSelections.set(userKey, {});
-            }
-            const selections = userVoteSelections.get(userKey);
+            // Get existing voting session from D1
+            let session = await pollManager.getVotingSession(userKey);
+            const selections = session ? session.selections : {};
             
             // Update the specific choice
             selections[choiceType] = selectedValue;
+            
+            // Save updated selections to D1
+            await pollManager.setVotingSession(userKey, actualPollId, userId, selections);
             
             const maxBooks = poll.nominations.length;
             const requiredChoices = Math.min(3, maxBooks);
@@ -273,8 +271,8 @@ export async function handleSelectMenuInteraction(interaction, env) {
                 // Submit the vote
                 await pollManager.submitVote(actualPollId, userId, rankings);
                 
-                // Clean up temporary selections
-                userVoteSelections.delete(userKey);
+                // Clean up temporary selections from D1
+                await pollManager.deleteVotingSession(userKey);
                 
                 return new Response(JSON.stringify({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,

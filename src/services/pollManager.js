@@ -150,10 +150,38 @@ export class PollManager {
     }
 
     async updatePoll(pollId, updates) {
-        const updateMask = Object.keys(updates).join(',');
-        await firestoreRequest('PATCH', `/polls/${pollId}?updateMask.fieldPaths=${updateMask}`, {
-            fields: this.serializeForFirestore(updates)
-        });
+        const now = new Date().toISOString();
+        const setParts = [];
+        const bindings = [];
+        
+        // Build dynamic update query
+        for (const [key, value] of Object.entries(updates)) {
+            const dbColumn = this.convertFieldToColumn(key);
+            setParts.push(`${dbColumn} = ?`);
+            
+            if (key === 'results') {
+                bindings.push(JSON.stringify(value));
+            } else {
+                bindings.push(value);
+            }
+        }
+        
+        setParts.push('updated_at = ?');
+        bindings.push(now);
+        bindings.push(pollId);
+        
+        await this.db.prepare(`
+            UPDATE polls SET ${setParts.join(', ')} WHERE id = ?
+        `).bind(...bindings).run();
+    }
+    
+    convertFieldToColumn(field) {
+        const fieldMap = {
+            'phase': 'phase',
+            'results': 'results_data',
+            'tallyMethod': 'tally_method'
+        };
+        return fieldMap[field] || field;
     }
 
     async nominateBook(pollId, nomination) {
@@ -166,18 +194,32 @@ export class PollManager {
             throw new Error('You have already nominated a book for this poll');
         }
 
-        poll.nominations.push(nomination);
-        await this.updatePoll(pollId, { nominations: poll.nominations });
-        return poll;
+        // Insert nomination into database
+        await this.db.prepare(`
+            INSERT INTO nominations (poll_id, title, author, link, user_id, username)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+            pollId,
+            nomination.title,
+            nomination.author || null,
+            nomination.link || null,
+            nomination.userId,
+            nomination.username
+        ).run();
+
+        return await this.getPoll(pollId);
     }
 
     async removeUserNomination(pollId, userId) {
         const poll = await this.getPoll(pollId);
         if (!poll) throw new Error('Poll not found');
 
-        poll.nominations = poll.nominations.filter(n => n.userId !== userId);
-        await this.updatePoll(pollId, { nominations: poll.nominations });
-        return poll;
+        // Remove nomination from database
+        await this.db.prepare(`
+            DELETE FROM nominations WHERE poll_id = ? AND user_id = ?
+        `).bind(pollId, userId).run();
+
+        return await this.getPoll(pollId);
     }
 
     async submitVote(pollId, userId, rankings) {
@@ -194,19 +236,16 @@ export class PollManager {
             throw new Error('You have already voted in this poll');
         }
 
-        const vote = {
-            userId,
-            rankings,
-            timestamp: new Date().toISOString()
-        };
-
-        poll.votes.push(vote);
-        await this.updatePoll(pollId, { votes: poll.votes });
+        // Insert vote into database
+        await this.db.prepare(`
+            INSERT INTO votes (poll_id, user_id, rankings)
+            VALUES (?, ?, ?)
+        `).bind(pollId, userId, JSON.stringify(rankings)).run();
 
         // Check if all members have voted
         await this.checkIfAllVoted(pollId);
         
-        return poll;
+        return await this.getPoll(pollId);
     }
 
     async updatePollPhase(pollId, newPhase) {
@@ -289,12 +328,54 @@ export class PollManager {
 
     async getActivePolls() {
         try {
-            const response = await firestoreRequest('GET', `/polls`);
-            if (!response.documents) return [];
+            const polls = await this.db.prepare(`
+                SELECT * FROM polls WHERE phase != 'completed' ORDER BY created_at DESC
+            `).all();
             
-            return response.documents
-                .map(doc => this.deserializeFromFirestore(doc))
-                .filter(poll => poll.phase !== 'completed');
+            if (!polls.results) return [];
+            
+            // Get nominations and votes for each poll
+            const pollsWithData = await Promise.all(
+                polls.results.map(async (pollRow) => {
+                    const nominations = await this.db.prepare(`
+                        SELECT * FROM nominations WHERE poll_id = ? ORDER BY created_at ASC
+                    `).bind(pollRow.id).all();
+                    
+                    const votes = await this.db.prepare(`
+                        SELECT * FROM votes WHERE poll_id = ?
+                    `).bind(pollRow.id).all();
+                    
+                    return {
+                        id: pollRow.id,
+                        title: pollRow.title,
+                        guildId: pollRow.guild_id,
+                        channelId: pollRow.channel_id,
+                        creatorId: pollRow.creator_id,
+                        phase: pollRow.phase,
+                        tallyMethod: pollRow.tally_method,
+                        nominationDeadline: pollRow.nomination_deadline,
+                        votingDeadline: pollRow.voting_deadline,
+                        createdAt: pollRow.created_at,
+                        updatedAt: pollRow.updated_at,
+                        nominations: nominations.results?.map(n => ({
+                            title: n.title,
+                            author: n.author,
+                            link: n.link,
+                            userId: n.user_id,
+                            username: n.username,
+                            timestamp: n.created_at
+                        })) || [],
+                        votes: votes.results?.map(v => ({
+                            userId: v.user_id,
+                            rankings: JSON.parse(v.rankings),
+                            timestamp: v.created_at
+                        })) || [],
+                        results: pollRow.results_data ? JSON.parse(pollRow.results_data) : null
+                    };
+                })
+            );
+            
+            return pollsWithData;
         } catch (error) {
             console.error('Error getting active polls:', error);
             return [];
@@ -307,61 +388,61 @@ export class PollManager {
         return guildPolls.length === 1 ? guildPolls[0] : null;
     }
 
-    serializeForFirestore(data) {
-        const fields = {};
-        
-        for (const [key, value] of Object.entries(data)) {
-            if (value === null || value === undefined) continue;
+    // D1 Database helper methods for voting sessions
+    async getVotingSession(userKey) {
+        try {
+            const session = await this.db.prepare(`
+                SELECT * FROM voting_sessions WHERE user_key = ? AND expires_at > datetime('now')
+            `).bind(userKey).first();
             
-            if (typeof value === 'string') {
-                fields[key] = { stringValue: value };
-            } else if (typeof value === 'number') {
-                fields[key] = { integerValue: value.toString() };
-            } else if (typeof value === 'boolean') {
-                fields[key] = { booleanValue: value };
-            } else if (Array.isArray(value)) {
-                fields[key] = {
-                    arrayValue: {
-                        values: value.map(item => {
-                            if (typeof item === 'object') {
-                                return { mapValue: { fields: this.serializeForFirestore(item) } };
-                            }
-                            return { stringValue: item.toString() };
-                        })
-                    }
-                };
-            } else if (typeof value === 'object') {
-                fields[key] = { mapValue: { fields: this.serializeForFirestore(value) } };
-            }
+            if (!session) return null;
+            
+            return {
+                pollId: session.poll_id,
+                userId: session.user_id,
+                selections: JSON.parse(session.selections),
+                createdAt: session.created_at,
+                expiresAt: session.expires_at
+            };
+        } catch (error) {
+            console.error('Error getting voting session:', error);
+            return null;
         }
-        
-        return fields;
     }
-
-    deserializeFromFirestore(doc) {
-        if (!doc.fields) return null;
-        
-        const data = {};
-        
-        for (const [key, value] of Object.entries(doc.fields)) {
-            if (value.stringValue !== undefined) {
-                data[key] = value.stringValue;
-            } else if (value.integerValue !== undefined) {
-                data[key] = parseInt(value.integerValue);
-            } else if (value.booleanValue !== undefined) {
-                data[key] = value.booleanValue;
-            } else if (value.arrayValue) {
-                data[key] = value.arrayValue.values.map(item => {
-                    if (item.mapValue) {
-                        return this.deserializeFromFirestore({ fields: item.mapValue.fields });
-                    }
-                    return item.stringValue || item.integerValue || item.booleanValue;
-                });
-            } else if (value.mapValue) {
-                data[key] = this.deserializeFromFirestore({ fields: value.mapValue.fields });
-            }
+    
+    async setVotingSession(userKey, pollId, userId, selections) {
+        try {
+            const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 minutes
+            
+            await this.db.prepare(`
+                INSERT OR REPLACE INTO voting_sessions 
+                (user_key, poll_id, user_id, selections, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+            `).bind(
+                userKey,
+                pollId,
+                userId,
+                JSON.stringify(selections),
+                expiresAt
+            ).run();
+            
+            return true;
+        } catch (error) {
+            console.error('Error setting voting session:', error);
+            return false;
         }
-        
-        return data;
+    }
+    
+    async deleteVotingSession(userKey) {
+        try {
+            await this.db.prepare(`
+                DELETE FROM voting_sessions WHERE user_key = ?
+            `).bind(userKey).run();
+            
+            return true;
+        } catch (error) {
+            console.error('Error deleting voting session:', error);
+            return false;
+        }
     }
 }
