@@ -1,41 +1,9 @@
+import { verifyKey } from 'discord-interactions';
+import { InteractionType, InteractionResponseType } from 'discord-interactions';
 import { Router } from 'itty-router';
-
-// Import with error handling
-let verifyKey, InteractionType, InteractionResponseType;
-let pollCommand, handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit;
-let checkPollPhases;
-
-try {
-  const discordInteractions = await import('discord-interactions');
-  verifyKey = discordInteractions.verifyKey;
-  InteractionType = discordInteractions.InteractionType;
-  InteractionResponseType = discordInteractions.InteractionResponseType;
-} catch (error) {
-  console.error('Failed to import discord-interactions:', error);
-}
-
-try {
-  const pollModule = await import('./commands/poll.js');
-  pollCommand = pollModule.pollCommand;
-} catch (error) {
-  console.error('Failed to import poll command:', error);
-}
-
-try {
-  const handlersModule = await import('./interactions/handlers.js');
-  handleButtonInteraction = handlersModule.handleButtonInteraction;
-  handleSelectMenuInteraction = handlersModule.handleSelectMenuInteraction;
-  handleModalSubmit = handlersModule.handleModalSubmit;
-} catch (error) {
-  console.error('Failed to import handlers:', error);
-}
-
-try {
-  const schedulerModule = await import('./services/scheduler.js');
-  checkPollPhases = schedulerModule.checkPollPhases;
-} catch (error) {
-  console.error('Failed to import scheduler:', error);
-}
+import { pollCommand } from './commands/poll.js';
+import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './interactions/handlers.js';
+import { checkPollPhases } from './services/scheduler.js';
 
 const router = Router();
 
@@ -82,11 +50,20 @@ router.post('/interactions', async (request, env) => {
         return new Response('Bot configuration error', { status: 500 });
       }
 
-      // Verify the request signature
-      const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
-      if (!isValidRequest) {
-        console.error('Invalid request signature');
-        return new Response('Bad request signature', { status: 401 });
+      // Verify the request signature (skip verification for health checks)
+      if (request.url.includes('/health')) {
+        // Health endpoint doesn't need signature verification
+      } else {
+        try {
+          const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
+          if (!isValidRequest) {
+            console.error('Invalid request signature');
+            return new Response('Bad request signature', { status: 401 });
+          }
+        } catch (verifyError) {
+          console.error('Signature verification error:', verifyError);
+          return new Response('Signature verification failed', { status: 401 });
+        }
       }
 
       const interaction = JSON.parse(body);
@@ -191,10 +168,19 @@ async function handleCron(event, env, ctx) {
 // Main handler
 export default {
   async fetch(request, env, ctx) {
-    return router.handle(request, env, ctx);
+    try {
+      return await router.handle(request, env, ctx);
+    } catch (error) {
+      console.error('Router error:', error);
+      return new Response('Internal server error', { status: 500 });
+    }
   },
   
   async scheduled(event, env, ctx) {
-    return handleCron(event, env, ctx);
+    try {
+      return await handleCron(event, env, ctx);
+    } catch (error) {
+      console.error('Scheduled error:', error);
+    }
   }
 };
