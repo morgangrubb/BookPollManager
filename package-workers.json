@@ -1,0 +1,30 @@
+{
+  "name": "discord-book-poll-bot-serverless",
+  "version": "1.0.0",
+  "description": "Serverless Discord bot for managing book polls with Firebase storage and ranked-choice voting",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "discord-interactions": "^3.4.0",
+    "itty-router": "^4.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "serverless",
+    "cloudflare-workers",
+    "firebase",
+    "voting",
+    "polls"
+  ],
+  "author": "",
+  "license": "MIT"
+}

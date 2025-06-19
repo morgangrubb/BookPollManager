@@ -2,18 +2,29 @@
 
 ## Overview
 
-This is a Discord bot designed to facilitate book club polls using ranked choice voting (Instant Runoff Voting). The bot allows users to create polls, nominate books during a nomination phase, and then vote using ranked preferences during a voting phase. The system automatically transitions between phases based on configured timestamps and calculates winners using the IRV algorithm.
+This is a Discord bot designed to facilitate book club polls using ranked choice voting (Instant Runoff Voting). Originally built as a traditional Node.js application, it has been converted to a serverless architecture for deployment on Cloudflare Workers. The bot allows users to create polls, nominate books during a nomination phase, and then vote using ranked preferences during a voting phase. The system automatically transitions between phases based on configured timestamps and calculates winners using the IRV algorithm.
+
+**Current State**: The project includes both the original Node.js implementation and a complete serverless version optimized for Cloudflare Workers deployment.
 
 ## System Architecture
 
-The application follows a modular Node.js architecture with clear separation of concerns:
+The project now supports two deployment models:
 
-- **Discord Bot Layer**: Handles Discord interactions and slash commands
+### Original Node.js Architecture (Traditional)
+- **Discord Bot Layer**: Gateway API with persistent WebSocket connection
 - **Service Layer**: Manages business logic for polls, Firebase operations, and scheduling
 - **Utility Layer**: Implements ranked choice voting calculations
 - **Configuration Layer**: Centralizes environment variable management
+- **Scheduler**: Node-cron with 1-minute intervals for poll phase transitions
 
-The bot uses an event-driven architecture with scheduled tasks for automatic poll phase transitions.
+### Serverless Architecture (Cloudflare Workers)
+- **HTTP Webhook Layer**: Discord interactions via webhooks instead of Gateway API
+- **Serverless Functions**: Stateless request handlers for each interaction
+- **Firebase REST API**: Direct REST calls instead of Admin SDK
+- **Cloudflare Cron**: 5-minute intervals for automated poll transitions
+- **KV Storage**: Temporary data storage for multi-step interactions
+
+Both architectures maintain the same core functionality with environment-specific optimizations.
 
 ## Key Components
 
