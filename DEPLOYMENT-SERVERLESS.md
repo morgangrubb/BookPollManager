@@ -29,17 +29,19 @@ npm install
 # Authenticate with Cloudflare
 wrangler login
 
-# Create KV namespace for temporary data storage
-wrangler kv:namespace create "POLLS_KV"
-wrangler kv:namespace create "POLLS_KV" --preview
+# Create D1 database for poll data storage
+wrangler d1 create discord-polls
+
+# Initialize database schema
+wrangler d1 execute discord-polls --file=./src/schema/init.sql
 ```
 
-Update `wrangler.toml` with your KV namespace IDs:
+Update `wrangler.toml` with your D1 database ID:
 ```toml
-[[kv_namespaces]]
-binding = "POLLS_KV"
-id = "your-production-kv-id"
-preview_id = "your-preview-kv-id"
+[[d1_databases]]
+binding = "POLLS_DB"
+database_name = "discord-polls"
+database_id = "your-d1-database-id"
 ```
 
 ### 3. Set Environment Variables
@@ -50,9 +52,9 @@ wrangler secret put DISCORD_TOKEN
 wrangler secret put DISCORD_PUBLIC_KEY
 wrangler secret put DISCORD_CLIENT_ID
 
-# Firebase configuration (priority: X_ prefixed variables)
-wrangler secret put X_FIREBASE_PROJECT_ID
-wrangler secret put X_FIREBASE_SERVICE_ACCOUNT_KEY
+# Optional: Firebase configuration for hybrid setup (if using Firebase alongside D1)
+# wrangler secret put X_FIREBASE_PROJECT_ID
+# wrangler secret put X_FIREBASE_SERVICE_ACCOUNT_KEY
 ```
 
 ### 4. Configure Discord Webhook
@@ -112,19 +114,19 @@ Scheduled tasks now use Cloudflare's cron triggers:
 - **Original**: `node-cron` with 1-minute intervals
 - **Serverless**: Cloudflare cron triggers every 5 minutes
 
-### From Firebase Admin SDK to REST API
+### From Firebase to Cloudflare D1
 
-Firebase integration simplified for serverless environment:
+Database layer replaced with Cloudflare's SQLite-based D1:
 
-- **Original**: Firebase Admin SDK with persistent connection
-- **Serverless**: Firebase REST API with token-based authentication
+- **Original**: Firebase Firestore NoSQL database
+- **Serverless**: Cloudflare D1 relational SQLite database
 
 ### Temporary Data Storage
 
-User voting selections stored in Cloudflare KV:
+User voting selections stored in D1 database:
 
 - **Original**: In-memory Map storage
-- **Serverless**: Cloudflare KV store with TTL
+- **Serverless**: D1 voting_sessions table with TTL cleanup
 
 ## Key Differences
 

@@ -20,9 +20,9 @@ The project now supports two deployment models:
 ### Serverless Architecture (Cloudflare Workers)
 - **HTTP Webhook Layer**: Discord interactions via webhooks instead of Gateway API
 - **Serverless Functions**: Stateless request handlers for each interaction
-- **Firebase REST API**: Direct REST calls instead of Admin SDK
+- **Cloudflare D1**: SQLite database for all poll data storage
 - **Cloudflare Cron**: 5-minute intervals for automated poll transitions
-- **KV Storage**: Temporary data storage for multi-step interactions
+- **D1 Sessions**: Temporary voting data stored in database with TTL cleanup
 
 Both architectures maintain the same core functionality with environment-specific optimizations.
 

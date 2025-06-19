@@ -3,7 +3,6 @@ import { InteractionType, InteractionResponseType } from 'discord-interactions';
 import { Router } from 'itty-router';
 import { pollCommand } from './commands/poll.js';
 import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './interactions/handlers.js';
-import { initializeFirebase } from './services/firebase.js';
 import { checkPollPhases } from './services/scheduler.js';
 
 const router = Router();
@@ -41,8 +40,7 @@ router.post('/interactions', async (request, env) => {
       });
     }
 
-    // Initialize Firebase
-    await initializeFirebase(env);
+    // D1 database is automatically available via env.POLLS_DB
 
     // Handle application commands
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
@@ -82,7 +80,6 @@ router.post('/interactions', async (request, env) => {
 // Cron job handler for poll phase transitions
 async function handleCron(event, env, ctx) {
   try {
-    await initializeFirebase(env);
     await checkPollPhases(env);
     console.log('Cron job completed successfully');
   } catch (error) {
