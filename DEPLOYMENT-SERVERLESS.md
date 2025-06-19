@@ -46,6 +46,8 @@ database_id = "your-d1-database-id"
 
 ### 3. Set Environment Variables
 
+Set these secrets in your Cloudflare Workers environment:
+
 ```bash
 # Discord configuration
 wrangler secret put DISCORD_TOKEN
