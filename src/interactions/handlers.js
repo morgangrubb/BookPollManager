@@ -161,7 +161,7 @@ export async function handleNominate(interaction, options, pollManager) {
     return createResponse(`❌ ${error.message}`);
   }
 
-  // Announce nomination to channel
+  // Announce nomination to channel (optional, don't fail if it doesn't work)
   try {
     const poll = await pollManager.getPoll(pollId);
     const channelId = poll.channelId || interaction.channel_id;
@@ -170,11 +170,16 @@ export async function handleNominate(interaction, options, pollManager) {
       const announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
       
       console.log('Sending nomination announcement to channel:', channelId);
-      await sendDiscordMessage(channelId, announcementContent, pollManager.env);
-      console.log('Nomination announcement sent successfully');
+      const result = await sendDiscordMessage(channelId, announcementContent, pollManager.env);
+      
+      if (result) {
+        console.log('Nomination announcement sent successfully');
+      } else {
+        console.log('Nomination announcement skipped due to rate limiting');
+      }
     }
   } catch (error) {
-    console.error('Failed to announce nomination:', error);
+    console.warn('Failed to announce nomination (non-critical):', error.message);
     // Don't fail the nomination if announcement fails
   }
 
@@ -228,16 +233,21 @@ export async function handleWithdrawNomination(interaction, options, pollManager
     
     await pollManager.removeUserNomination(pollId, userId);
     
-    // Announce withdrawal to channel
+    // Announce withdrawal to channel (optional, don't fail if it doesn't work)
     if (userNomination && poll.channelId) {
       try {
         const announcementContent = `📖 **Nomination Withdrawn**\n\n**${userNomination.title}**${userNomination.author ? ` by ${userNomination.author}` : ''}\n\nWithdrawn by <@${userId}> from **${poll.title}**`;
         
         console.log('Sending withdrawal announcement to channel:', poll.channelId);
-        await sendDiscordMessage(poll.channelId, announcementContent, pollManager.env);
-        console.log('Withdrawal announcement sent successfully');
+        const result = await sendDiscordMessage(poll.channelId, announcementContent, pollManager.env);
+        
+        if (result) {
+          console.log('Withdrawal announcement sent successfully');
+        } else {
+          console.log('Withdrawal announcement skipped due to rate limiting');
+        }
       } catch (error) {
-        console.error('Failed to announce withdrawal:', error);
+        console.warn('Failed to announce withdrawal (non-critical):', error.message);
       }
     }
     
@@ -410,6 +420,9 @@ async function sendDiscordMessage(channelId, content, env) {
   const url = `https://discord.com/api/v10/channels/${channelId}/messages`;
   
   try {
+    // Add small delay to help with rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -422,14 +435,28 @@ async function sendDiscordMessage(channelId, content, env) {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Discord API error:', response.status, error);
+      const errorText = await response.text();
+      console.error('Discord API error:', response.status, errorText);
+      
+      // Handle rate limiting gracefully
+      if (response.status === 429) {
+        console.warn('Discord API rate limit hit, skipping announcement');
+        return null; // Don't throw error for rate limits
+      }
+      
       throw new Error(`Discord API error: ${response.status}`);
     }
     
     return await response.json();
   } catch (error) {
     console.error('Failed to send Discord message:', error);
+    
+    // Don't throw error for rate limiting issues
+    if (error.message.includes('429')) {
+      console.warn('Rate limit detected, skipping announcement');
+      return null;
+    }
+    
     throw error;
   }
 }

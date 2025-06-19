@@ -94,6 +94,12 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Fixed Discord API rate limiting issues for channel announcements
+  - Added proper rate limiting handling for Discord API calls (HTTP 429 errors)
+  - Implemented 500ms delay between announcement requests to prevent rate limits
+  - Made channel announcements optional - nominations/withdrawals succeed even if announcements fail
+  - Enhanced error logging to distinguish between critical and non-critical failures
+  - Prevents nomination/withdrawal operations from failing due to announcement issues
 - June 19, 2025: Enhanced user experience for duplicate nominations
   - Updated nomination handler to detect when user already has a nomination
   - Shows existing nomination details instead of generic error message
