@@ -10,7 +10,7 @@ class PollManager {
     }
     
     async createPoll(pollData) {
-        const db = this.getDB();
+        throw new Error('Firebase integration removed - please use serverless version with D1 database');
         
         const poll = {
             ...pollData,

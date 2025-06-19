@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Collection, REST, Routes, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
-const { initializeFirebase } = require('./services/firebase');
+// Firebase integration removed - using serverless D1 database instead
 const { startScheduler } = require('./services/scheduler');
 const config = require('./config/config');
 const pollManager = require('./services/pollManager');
@@ -23,14 +23,8 @@ client.commands.set(pollCommand.data.name, pollCommand);
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} is online!`);
     
-    // Initialize Firebase
-    try {
-        await initializeFirebase();
-        console.log('✅ Firebase initialized successfully');
-    } catch (error) {
-        console.error('❌ Failed to initialize Firebase:', error);
-        process.exit(1);
-    }
+    // Firebase integration removed - using serverless D1 database
+    console.log('⚠️  Traditional Node.js version deprecated - use serverless version with D1 database');
     
     // Start scheduler for poll phase transitions
     startScheduler(client);
