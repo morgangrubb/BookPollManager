@@ -1,9 +1,41 @@
-import { verifyKey } from 'discord-interactions';
-import { InteractionType, InteractionResponseType } from 'discord-interactions';
 import { Router } from 'itty-router';
-import { pollCommand } from './commands/poll.js';
-import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './interactions/handlers.js';
-import { checkPollPhases } from './services/scheduler.js';
+
+// Import with error handling
+let verifyKey, InteractionType, InteractionResponseType;
+let pollCommand, handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit;
+let checkPollPhases;
+
+try {
+  const discordInteractions = await import('discord-interactions');
+  verifyKey = discordInteractions.verifyKey;
+  InteractionType = discordInteractions.InteractionType;
+  InteractionResponseType = discordInteractions.InteractionResponseType;
+} catch (error) {
+  console.error('Failed to import discord-interactions:', error);
+}
+
+try {
+  const pollModule = await import('./commands/poll.js');
+  pollCommand = pollModule.pollCommand;
+} catch (error) {
+  console.error('Failed to import poll command:', error);
+}
+
+try {
+  const handlersModule = await import('./interactions/handlers.js');
+  handleButtonInteraction = handlersModule.handleButtonInteraction;
+  handleSelectMenuInteraction = handlersModule.handleSelectMenuInteraction;
+  handleModalSubmit = handlersModule.handleModalSubmit;
+} catch (error) {
+  console.error('Failed to import handlers:', error);
+}
+
+try {
+  const schedulerModule = await import('./services/scheduler.js');
+  checkPollPhases = schedulerModule.checkPollPhases;
+} catch (error) {
+  console.error('Failed to import scheduler:', error);
+}
 
 const router = Router();
 
@@ -43,6 +75,12 @@ router.post('/interactions', async (request, env) => {
         method: request.method,
         url: request.url
       });
+
+      // Check if public key is available
+      if (!env.DISCORD_PUBLIC_KEY) {
+        console.error('DISCORD_PUBLIC_KEY not configured');
+        return new Response('Bot configuration error', { status: 500 });
+      }
 
       // Verify the request signature
       const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
