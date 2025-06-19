@@ -151,7 +151,14 @@ The application is configured for Replit deployment with:
   - Temporary vote tracking system for multi-step dropdown selections with duplicate validation
   - Enhanced user experience with selection status feedback and automatic vote submission
   - Firebase configuration now prioritizes X_FIREBASE_PROJECT_ID and X_FIREBASE_SERVICE_ACCOUNT_KEY variables
-  - Production ready for Discord servers
+  - Complete serverless conversion for Cloudflare Workers deployment
+  - Webhook-based Discord interactions replacing Gateway API connection
+  - Migrated from Firebase to Cloudflare D1 SQLite database for improved performance
+  - D1 database schema with polls, nominations, votes, and voting_sessions tables
+  - Temporary voting session management with automatic TTL cleanup
+  - Automated cron triggers for poll phase transitions (5-minute intervals)
+  - Comprehensive deployment documentation for both traditional and serverless architectures
+  - Production ready for both Replit and Cloudflare Workers hosting
 
 ## Changelog
 

@@ -1,4 +1,3 @@
-const { getFirestore } = require('./firebase');
 const { calculateRankedChoiceWinner } = require('../utils/rankedChoice');
 
 class PollManager {
@@ -7,10 +6,7 @@ class PollManager {
     }
     
     getDB() {
-        if (!this.db) {
-            this.db = getFirestore();
-        }
-        return this.db;
+        throw new Error('Firebase integration removed - please use serverless version with D1 database');
     }
     
     async createPoll(pollData) {

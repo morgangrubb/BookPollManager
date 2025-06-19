@@ -1,39 +1,16 @@
-const admin = require('firebase-admin');
-const config = require('../config/config');
+// Firebase integration removed - serverless version uses D1 database
+// This file is kept for backwards compatibility but is no longer functional
 
-let db;
-
-async function initializeFirebase() {
-    try {
-        // Initialize Firebase Admin SDK
-        if (!admin.apps.length) {
-            const serviceAccount = JSON.parse(config.firebase.serviceAccountKey);
-            
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                projectId: config.firebase.projectId
-            });
-        }
-        
-        db = admin.firestore();
-        console.log('Firebase initialized successfully');
-        
-        return db;
-    } catch (error) {
-        console.error('Error initializing Firebase:', error);
-        throw error;
-    }
+function initializeFirebase() {
+    console.log('⚠️  Firebase integration removed - please use serverless version with D1 database');
+    return Promise.resolve();
 }
 
 function getFirestore() {
-    if (!db) {
-        throw new Error('Firebase not initialized. Call initializeFirebase() first.');
-    }
-    return db;
+    throw new Error('Firebase integration removed - please use serverless version with D1 database');
 }
 
 module.exports = {
     initializeFirebase,
-    getFirestore,
-    admin
+    getFirestore
 };
