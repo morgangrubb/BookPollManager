@@ -2,6 +2,76 @@
 export class DatabaseManager {
   constructor(db) {
     this.db = db;
+    this.initialized = false;
+  }
+
+  // Initialize database schema if it doesn't exist
+  async initializeSchema() {
+    if (this.initialized) return;
+    
+    try {
+      // Create polls table
+      await this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS polls (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          guild_id TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          creator_id TEXT NOT NULL,
+          phase TEXT NOT NULL DEFAULT 'nomination',
+          tally_method TEXT NOT NULL DEFAULT 'ranked-choice',
+          nomination_deadline TEXT NOT NULL,
+          voting_deadline TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          results_data TEXT
+        )
+      `).run();
+
+      // Create nominations table
+      await this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS nominations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          poll_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          author TEXT,
+          link TEXT,
+          user_id TEXT NOT NULL,
+          username TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `).run();
+
+      // Create votes table
+      await this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS votes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          poll_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          rankings TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(poll_id, user_id)
+        )
+      `).run();
+
+      // Create voting sessions table
+      await this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS voting_sessions (
+          user_key TEXT PRIMARY KEY,
+          poll_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          selections TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          expires_at TEXT NOT NULL
+        )
+      `).run();
+
+      this.initialized = true;
+      console.log('Database schema initialized successfully');
+    } catch (error) {
+      console.error('Error initializing database schema:', error);
+      throw error;
+    }
   }
 
   // Generate unique poll ID
@@ -11,6 +81,8 @@ export class DatabaseManager {
 
   // Create new poll
   async createPoll(pollData) {
+    await this.initializeSchema();
+    
     const pollId = this.generatePollId();
     const now = new Date().toISOString();
 
@@ -40,6 +112,8 @@ export class DatabaseManager {
 
   // Get poll by ID
   async getPoll(pollId) {
+    await this.initializeSchema();
+    
     try {
       const poll = await this.db.prepare(`
         SELECT * FROM polls WHERE id = ?
@@ -82,6 +156,8 @@ export class DatabaseManager {
 
   // Add nomination
   async addNomination(pollId, nomination) {
+    await this.initializeSchema();
+    
     const now = new Date().toISOString();
     
     try {
@@ -129,6 +205,8 @@ export class DatabaseManager {
 
   // Get active polls for guild
   async getActivePolls(guildId) {
+    await this.initializeSchema();
+    
     try {
       const polls = await this.db.prepare(`
         SELECT * FROM polls 

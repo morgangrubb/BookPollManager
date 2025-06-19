@@ -53,19 +53,24 @@ async function handlePollCommand(interaction, env) {
     }
   } catch (error) {
     console.error('Error handling poll command:', error);
-    return createResponse('An error occurred while processing your request.');
+    console.error('Error stack:', error.stack);
+    return createResponse(`An error occurred while processing your request: ${error.message}`);
   }
 }
 
 // Create poll handler
 async function handleCreatePoll(interaction, options, db) {
+  console.log('handleCreatePoll called with options:', JSON.stringify(options));
+  
   const title = getOptionValue(options, 'title');
   const nominationHours = getOptionValue(options, 'nomination_hours');
   const votingHours = getOptionValue(options, 'voting_hours');
   const tallyMethod = getOptionValue(options, 'tally_method') || 'ranked-choice';
 
+  console.log('Parsed values:', { title, nominationHours, votingHours, tallyMethod });
+
   if (!title || !nominationHours || !votingHours) {
-    return createResponse('Missing required parameters for poll creation.');
+    return createResponse(`Missing required parameters for poll creation. Got: title=${title}, nomination_hours=${nominationHours}, voting_hours=${votingHours}`);
   }
 
   const now = new Date();
