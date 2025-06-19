@@ -1,0 +1,9 @@
+env:
+  - variable: DISCORD_CLIENT_ID
+    secret: DISCORD_CLIENT_ID
+  - variable: DISCORD_TOKEN
+    secret: DISCORD_TOKEN
+  - variable: X_FIREBASE_PROJECT_ID
+    secret: FIREBASE_PROJECT_ID
+  - variable: X_FIREBASE_SERVICE_ACCOUNT_KEY
+    secret: FIREBASE_SERVICE_ACCOUNT_KEY
