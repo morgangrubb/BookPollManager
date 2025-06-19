@@ -8,7 +8,7 @@ This guide covers deploying the Discord Book Poll Bot to Cloudflare Workers as a
 
 1. **Cloudflare Account**: Sign up at [cloudflare.com](https://cloudflare.com)
 2. **Discord Application**: Create bot in Discord Developer Portal
-3. **Firebase Project**: Set up Firestore database
+3. **Discord Application**: Configure webhook interactions
 4. **Node.js**: Version 18+ for local development
 
 ## Setup Steps
@@ -112,12 +112,13 @@ Scheduled tasks now use Cloudflare's cron triggers:
 - **Original**: `node-cron` with 1-minute intervals
 - **Serverless**: Cloudflare cron triggers every 5 minutes
 
-### From Firebase to Cloudflare D1
+### Database Architecture
 
-Database layer replaced with Cloudflare's SQLite-based D1:
+Cloudflare D1 SQLite database provides:
 
-- **Original**: Firebase Firestore NoSQL database
-- **Serverless**: Cloudflare D1 relational SQLite database
+- **Relational Structure**: Proper foreign keys and constraints
+- **Performance**: Edge-optimized SQLite queries
+- **Scalability**: Automatic replication and backups
 
 ### Temporary Data Storage
 
@@ -131,7 +132,7 @@ User voting selections stored in D1 database:
 ### Limitations
 
 1. **No Guild Member Fetching**: Cannot automatically detect when all members have voted
-2. **Simplified Firebase Auth**: Uses service account tokens instead of full Admin SDK
+2. **Stateless Operations**: No persistent connections required
 3. **Stateless**: No persistent memory between requests
 4. **Cron Frequency**: Poll phase checks every 5 minutes instead of 1 minute
 
@@ -263,4 +264,4 @@ Firebase Firestore provides automatic backups, but consider:
 For issues with:
 - **Cloudflare Workers**: [Cloudflare Support](https://support.cloudflare.com)
 - **Discord API**: [Discord Developer Support](https://discord.com/developers/docs)
-- **Firebase**: [Firebase Support](https://firebase.google.com/support)
+- **Cloudflare**: [Cloudflare Support](https://support.cloudflare.com/)

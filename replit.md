@@ -101,7 +101,7 @@ Serverless deployment on Cloudflare Workers:
   - Simplified project structure focused on /src directory
 - June 18, 2025: Discord bot fully operational with enhanced results display
   - Bot successfully connects to Discord as "Book Poll#3846"
-  - Firebase Firestore database created and working
+  - Cloudflare D1 SQLite database created and working
   - All slash commands registered and functional
   - Smart poll detection: nominate and vote commands auto-detect active polls
   - Advanced poll management: early phase endings, nomination removal
@@ -136,7 +136,7 @@ Serverless deployment on Cloudflare Workers:
   - Removed all Firebase dependencies and configuration
   - Complete serverless conversion for Cloudflare Workers deployment
   - Webhook-based Discord interactions replacing Gateway API connection
-  - Migrated from Firebase to Cloudflare D1 SQLite database for improved performance
+  - Replaced Firebase with Cloudflare D1 SQLite database for improved performance
   - D1 database schema with polls, nominations, votes, and voting_sessions tables
   - Temporary voting session management with automatic TTL cleanup
   - Automated cron triggers for poll phase transitions (5-minute intervals)
