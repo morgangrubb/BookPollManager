@@ -7,10 +7,6 @@ yarn-error.log*
 firebase-debug.log*
 firebase-debug.*.log*
 
-# Wrangler
-.wrangler/
-build/
-
 # Firebase cache
 .firebase/
 
