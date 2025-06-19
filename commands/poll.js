@@ -112,37 +112,10 @@ module.exports = {
                 .setDescription('List all polls')),
 
     async execute(interaction) {
-        const subcommand = interaction.options.getSubcommand();
-        
-        switch (subcommand) {
-            case 'create':
-                await handleCreatePoll(interaction);
-                break;
-            case 'nominate':
-                await handleNominate(interaction);
-                break;
-            case 'vote':
-                await handleVote(interaction);
-                break;
-            case 'status':
-                await handleStatus(interaction);
-                break;
-            case 'list':
-                await handleList(interaction);
-                break;
-            case 'end-nominations':
-                await handleEndNominations(interaction);
-                break;
-            case 'end-voting':
-                await handleEndVoting(interaction);
-                break;
-            case 'remove-nomination':
-                await handleRemoveNomination(interaction);
-                break;
-            case 'withdraw-nomination':
-                await handleWithdrawNomination(interaction);
-                break;
-        }
+        await interaction.reply({ 
+            content: '⚠️  Traditional Node.js version deprecated. Firebase integration removed.\n\nPlease use the serverless version with Cloudflare D1 database for full functionality.',
+            ephemeral: true 
+        });
     }
 };
 

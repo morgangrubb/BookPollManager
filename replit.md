@@ -107,8 +107,8 @@ The application is configured for Replit deployment with:
 - **Workflow Automation**: Parallel execution setup for Discord bot service
 
 **Environment Requirements**:
-- Discord bot token and application credentials
-- Firebase project ID and service account key
+- **Traditional (Deprecated)**: Discord bot token only
+- **Serverless (Active)**: Discord webhook credentials, Cloudflare D1 database
 - Optional guild ID for server-specific commands
 
 ## Recent Changes
