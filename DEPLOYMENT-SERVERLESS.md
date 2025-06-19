@@ -52,9 +52,7 @@ wrangler secret put DISCORD_TOKEN
 wrangler secret put DISCORD_PUBLIC_KEY
 wrangler secret put DISCORD_CLIENT_ID
 
-# Optional: Firebase configuration for hybrid setup (if using Firebase alongside D1)
-# wrangler secret put X_FIREBASE_PROJECT_ID
-# wrangler secret put X_FIREBASE_SERVICE_ACCOUNT_KEY
+# All required environment variables configured
 ```
 
 ### 4. Configure Discord Webhook

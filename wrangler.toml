@@ -8,7 +8,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "POLLS_DB"
 database_name = "discord-polls"
-database_id = "your-d1-database-id"
+database_id = ""  # Set this after creating your D1 database
 
 [triggers]
 crons = ["*/5 * * * *"]

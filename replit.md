@@ -62,7 +62,7 @@ Serverless architecture built for Cloudflare Workers:
 
 ## Data Flow
 
-1. **Poll Creation**: User creates poll via slash command → Data stored in Firebase → Poll ID returned
+1. **Poll Creation**: User creates poll via slash command → Data stored in D1 database → Poll ID returned
 2. **Nomination Phase**: Users nominate books → Nominations stored with poll association → Phase automatically transitions based on timestamp
 3. **Voting Phase**: Users submit ranked preferences → Votes validated and stored → Phase transitions to completion
 4. **Result Calculation**: IRV algorithm processes votes → Winner determined → Results stored and can be displayed
@@ -70,17 +70,13 @@ Serverless architecture built for Cloudflare Workers:
 ## External Dependencies
 
 ### Core Dependencies
-- **discord.js (v14.20.0)**: Discord API wrapper for bot functionality
-- **firebase-admin (v13.4.0)**: Firebase SDK for database operations
-- **node-cron (v4.1.0)**: Cron job scheduling for automated tasks
-
-### Firebase Services
-- **Firestore**: NoSQL document database for storing polls, nominations, and votes
-- **Authentication**: Service account-based authentication for server-to-server communication
+- **Cloudflare Workers**: Serverless JavaScript runtime environment
+- **Cloudflare D1**: SQLite-compatible serverless database
+- **Cloudflare Cron Triggers**: Automated scheduling for poll transitions
 
 ### Discord Platform
-- **Discord Developer Portal**: Application registration and bot token management
-- **Discord Gateway**: Real-time event handling and slash command registration
+- **Discord Developer Portal**: Application registration and webhook configuration
+- **Discord Webhooks**: HTTP-based interaction handling for serverless deployment
 
 ## Deployment Strategy
 
@@ -137,15 +133,15 @@ Serverless deployment on Cloudflare Workers:
   - Three dropdown menus: First choice (always), Second choice (2+ nominations), Third choice (3+ nominations)
   - Temporary vote tracking system for multi-step dropdown selections with duplicate validation
   - Enhanced user experience with selection status feedback and automatic vote submission
-  - Firebase configuration now prioritizes X_FIREBASE_PROJECT_ID and X_FIREBASE_SERVICE_ACCOUNT_KEY variables
+  - Removed all Firebase dependencies and configuration
   - Complete serverless conversion for Cloudflare Workers deployment
   - Webhook-based Discord interactions replacing Gateway API connection
   - Migrated from Firebase to Cloudflare D1 SQLite database for improved performance
   - D1 database schema with polls, nominations, votes, and voting_sessions tables
   - Temporary voting session management with automatic TTL cleanup
   - Automated cron triggers for poll phase transitions (5-minute intervals)
-  - Comprehensive deployment documentation for both traditional and serverless architectures
-  - Production ready for both Replit and Cloudflare Workers hosting
+  - Comprehensive deployment documentation for serverless architecture
+  - Production ready for Cloudflare Workers hosting only
 
 ## Changelog
 
