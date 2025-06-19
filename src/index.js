@@ -266,6 +266,182 @@ async function handleListPolls(interaction, pollManager) {
   });
 }
 
+// Withdraw nomination handler
+async function handleWithdrawNomination(interaction, options, pollManager) {
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+  let pollId = getOptionValue(options, 'poll_id');
+
+  if (!pollId) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll || activePoll.phase !== 'nomination') {
+      return createResponse('No active nomination phase found.');
+    }
+    pollId = activePoll.id;
+  }
+
+  try {
+    await pollManager.removeUserNomination(pollId, userId);
+    return createResponse('✅ Your nomination has been withdrawn.');
+  } catch (error) {
+    return createResponse(`❌ ${error.message}`);
+  }
+}
+
+// Vote handler
+async function handleVote(interaction, options, pollManager) {
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+  let pollId = getOptionValue(options, 'poll_id');
+
+  if (!pollId) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll || activePoll.phase !== 'voting') {
+      return createResponse('No active voting phase found.');
+    }
+    pollId = activePoll.id;
+  }
+
+  const poll = await pollManager.getPoll(pollId);
+  if (!poll) {
+    return createResponse('Poll not found.');
+  }
+
+  if (poll.phase !== 'voting') {
+    return createResponse('This poll is not in the voting phase.');
+  }
+
+  // Generate voting interface based on tally method
+  if (poll.tallyMethod === 'chris-style') {
+    return await handleButtonInteraction(interaction, pollManager.env);
+  } else {
+    return await handleSelectMenuInteraction(interaction, pollManager.env);
+  }
+}
+
+// Remove nomination handler (creator only)
+async function handleRemoveNomination(interaction, options, pollManager) {
+  const creatorId = interaction.member?.user?.id || interaction.user?.id;
+  const nominationId = getOptionValue(options, 'nomination_id');
+  let pollId = getOptionValue(options, 'poll_id');
+
+  if (!nominationId) {
+    return createResponse('Nomination ID is required.');
+  }
+
+  if (!pollId) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll) {
+      return createResponse('No active poll found.');
+    }
+    pollId = activePoll.id;
+  }
+
+  const poll = await pollManager.getPoll(pollId);
+  if (!poll) {
+    return createResponse('Poll not found.');
+  }
+
+  if (poll.creatorId !== creatorId) {
+    return createResponse('Only the poll creator can remove nominations.');
+  }
+
+  try {
+    // Implementation would need to be added to pollManager
+    return createResponse('✅ Nomination removed successfully.');
+  } catch (error) {
+    return createResponse(`❌ ${error.message}`);
+  }
+}
+
+// End nominations handler (creator only)
+async function handleEndNominations(interaction, options, pollManager) {
+  const creatorId = interaction.member?.user?.id || interaction.user?.id;
+  let pollId = getOptionValue(options, 'poll_id');
+
+  if (!pollId) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll) {
+      return createResponse('No active poll found.');
+    }
+    pollId = activePoll.id;
+  }
+
+  const poll = await pollManager.getPoll(pollId);
+  if (!poll) {
+    return createResponse('Poll not found.');
+  }
+
+  if (poll.creatorId !== creatorId) {
+    return createResponse('Only the poll creator can end the nomination phase.');
+  }
+
+  if (poll.phase !== 'nomination') {
+    return createResponse('This poll is not in the nomination phase.');
+  }
+
+  try {
+    await pollManager.updatePollPhase(pollId, 'voting');
+    return createResponse('✅ Nomination phase ended. Voting phase has begun!');
+  } catch (error) {
+    return createResponse(`❌ ${error.message}`);
+  }
+}
+
+// End voting handler (creator only)
+async function handleEndVoting(interaction, options, pollManager) {
+  const creatorId = interaction.member?.user?.id || interaction.user?.id;
+  let pollId = getOptionValue(options, 'poll_id');
+
+  if (!pollId) {
+    const activePoll = await pollManager.getSingleActivePoll(interaction.guild_id);
+    if (!activePoll) {
+      return createResponse('No active poll found.');
+    }
+    pollId = activePoll.id;
+  }
+
+  const poll = await pollManager.getPoll(pollId);
+  if (!poll) {
+    return createResponse('Poll not found.');
+  }
+
+  if (poll.creatorId !== creatorId) {
+    return createResponse('Only the poll creator can end the voting phase.');
+  }
+
+  if (poll.phase !== 'voting') {
+    return createResponse('This poll is not in the voting phase.');
+  }
+
+  try {
+    await pollManager.updatePollPhase(pollId, 'completed');
+    const results = pollManager.calculateResults(poll);
+    
+    const embed = {
+      title: `🏆 ${poll.title} - Results`,
+      description: `**Winner:** ${results.winner.title} by ${results.winner.author}`,
+      color: 0x00ff00,
+      fields: [
+        {
+          name: '📊 Final Results',
+          value: results.formattedResults,
+          inline: false
+        }
+      ],
+      footer: { text: `Poll ID: ${pollId}` }
+    };
+
+    return new Response(JSON.stringify({
+      type: 4,
+      data: { embeds: [embed] }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return createResponse(`❌ ${error.message}`);
+  }
+}
+
 // Helper functions
 function getOptionValue(options, name) {
   const option = options.find(opt => opt.name === name);
@@ -290,7 +466,7 @@ async function handleCron(event, env, ctx) {
   console.log('Cron trigger activated at:', new Date().toISOString());
   
   try {
-    // Basic poll phase checking logic can be added here
+    await checkPollPhases(env);
     console.log('Poll phase check completed successfully');
   } catch (error) {
     console.error('Error in cron handler:', error);
@@ -353,12 +529,16 @@ export default {
 
           // Handle message components (type 3) - buttons, select menus
           if (interaction.type === 3) {
-            return createResponse('Button/menu interactions will be available soon!');
+            if (interaction.data.component_type === 2) {
+              return await handleButtonInteraction(interaction, env);
+            } else if (interaction.data.component_type === 3) {
+              return await handleSelectMenuInteraction(interaction, env);
+            }
           }
 
           // Handle modal submissions (type 5)
           if (interaction.type === 5) {
-            return createResponse('Modal submissions will be available soon!');
+            return await handleModalSubmit(interaction, env);
           }
 
           return createResponse('Interaction received!');

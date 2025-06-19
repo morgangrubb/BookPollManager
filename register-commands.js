@@ -91,6 +91,77 @@ const commands = [
         name: 'list',
         description: 'List all polls',
         type: 1 // SUB_COMMAND
+      },
+      {
+        name: 'withdraw-nomination',
+        description: 'Withdraw your nomination from the active poll',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'poll_id',
+            description: 'Poll ID (optional - will auto-detect if not provided)',
+            type: 3, // STRING
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'vote',
+        description: 'Vote in the active poll',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'poll_id',
+            description: 'Poll ID (optional - will auto-detect if not provided)',
+            type: 3, // STRING
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'remove-nomination',
+        description: 'Remove a nomination (creator only)',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'nomination_id',
+            description: 'Nomination ID to remove',
+            type: 3, // STRING
+            required: true
+          },
+          {
+            name: 'poll_id',
+            description: 'Poll ID (optional - will auto-detect if not provided)',
+            type: 3, // STRING
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'end-nominations',
+        description: 'End nomination phase and start voting (creator only)',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'poll_id',
+            description: 'Poll ID (optional - will auto-detect if not provided)',
+            type: 3, // STRING
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'end-voting',
+        description: 'End voting phase and show results (creator only)',
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: 'poll_id',
+            description: 'Poll ID (optional - will auto-detect if not provided)',
+            type: 3, // STRING
+            required: false
+          }
+        ]
       }
     ]
   }
