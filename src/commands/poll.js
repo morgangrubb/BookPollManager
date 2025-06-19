@@ -19,15 +19,15 @@ export const pollCommand = {
                         required: true
                     },
                     {
-                        name: 'nomination_hours',
-                        description: 'Hours for nomination phase',
-                        type: 4, // INTEGER
+                        name: 'nomination_end',
+                        description: 'Nomination deadline (YYYY-MM-DD HH:MM)',
+                        type: 3, // STRING
                         required: true
                     },
                     {
-                        name: 'voting_hours',
-                        description: 'Hours for voting phase',
-                        type: 4, // INTEGER
+                        name: 'voting_end',
+                        description: 'Voting deadline (YYYY-MM-DD HH:MM)',
+                        type: 3, // STRING
                         required: true
                     },
                     {
@@ -179,17 +179,30 @@ export const pollCommand = {
     async handleCreate(interaction, options, pollManager) {
         try {
             const title = options.find(opt => opt.name === 'title')?.value;
-            const nominationHours = options.find(opt => opt.name === 'nomination_hours')?.value;
-            const votingHours = options.find(opt => opt.name === 'voting_hours')?.value;
+            const nominationEnd = options.find(opt => opt.name === 'nomination_end')?.value;
+            const votingEnd = options.find(opt => opt.name === 'voting_end')?.value;
             const tallyMethod = options.find(opt => opt.name === 'tally_method')?.value || 'ranked-choice';
 
-            if (!title || !nominationHours || !votingHours) {
+            if (!title || !nominationEnd || !votingEnd) {
                 throw new Error('Missing required parameters');
             }
 
+            const nominationDeadline = new Date(nominationEnd);
+            const votingDeadline = new Date(votingEnd);
+
+            // Validate dates
+            if (isNaN(nominationDeadline.getTime()) || isNaN(votingDeadline.getTime())) {
+                throw new Error('Invalid date format. Please use YYYY-MM-DD HH:MM format.');
+            }
+
             const now = new Date();
-            const nominationDeadline = new Date(now.getTime() + nominationHours * 60 * 60 * 1000);
-            const votingDeadline = new Date(nominationDeadline.getTime() + votingHours * 60 * 60 * 1000);
+            if (nominationDeadline <= now) {
+                throw new Error('Nomination deadline must be in the future.');
+            }
+
+            if (votingDeadline <= nominationDeadline) {
+                throw new Error('Voting deadline must be after the nomination deadline.');
+            }
 
             const pollData = {
                 title,
