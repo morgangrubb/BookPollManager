@@ -94,6 +94,11 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Enhanced user experience for duplicate nominations
+  - Updated nomination handler to detect when user already has a nomination
+  - Shows existing nomination details instead of generic error message
+  - Provides helpful guidance to use withdraw-nomination command for changes
+  - Improved error messaging for better user understanding
 - June 19, 2025: Refactored code organization for better maintainability
   - Moved all poll handler functions from index.js to interactions/handlers.js
   - Removed outdated index-*.js files (index-full.js, index-minimal.js, index-simple.js, index-vanilla.js)

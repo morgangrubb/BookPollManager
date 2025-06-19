@@ -148,7 +148,18 @@ export async function handleNominate(interaction, options, pollManager) {
     username: interaction.member?.user?.username || interaction.user?.username
   };
 
-  await pollManager.nominateBook(pollId, nomination);
+  try {
+    await pollManager.nominateBook(pollId, nomination);
+  } catch (error) {
+    console.error('Nomination error:', error);
+    
+    // Check if user already has a nomination
+    if (error.message.includes('already nominated')) {
+      return createResponse(`${error.message}. Use /poll withdraw-nomination if you want to change your nomination.`);
+    }
+    
+    return createResponse(`❌ ${error.message}`);
+  }
 
   // Announce nomination to channel
   try {
