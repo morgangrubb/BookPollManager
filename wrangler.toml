@@ -5,10 +5,10 @@ compatibility_date = "2023-12-01"
 [vars]
 ENVIRONMENT = "production"
 
-[[kv_namespaces]]
-binding = "POLLS_KV"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+[[d1_databases]]
+binding = "POLLS_DB"
+database_name = "discord-polls"
+database_id = "your-d1-database-id"
 
 [triggers]
 crons = ["*/5 * * * *"]
