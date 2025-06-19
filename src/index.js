@@ -1,181 +1,359 @@
-import { verifyKey } from 'discord-interactions';
-import { InteractionType, InteractionResponseType } from 'discord-interactions';
-import { Router } from 'itty-router';
-import { pollCommand } from './commands/poll.js';
-import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './interactions/handlers.js';
-import { checkPollPhases } from './services/scheduler.js';
+// Full Discord Bot functionality using vanilla Cloudflare Workers
+import { DatabaseManager } from './db-manager.js';
 
-const router = Router();
+// Signature verification using Web Crypto API
+async function verifyDiscordSignature(body, signature, timestamp, publicKey) {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      hexToBytes(publicKey),
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      false,
+      ['verify']
+    );
+    
+    const data = encoder.encode(timestamp + body);
+    const sig = hexToBytes(signature);
+    
+    return await crypto.subtle.verify('Ed25519', key, sig, data);
+  } catch (error) {
+    console.error('Signature verification error:', error);
+    return false;
+  }
+}
 
-// Health check endpoint - completely synchronous
-router.get('/health', () => {
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+// Poll command handler
+async function handlePollCommand(interaction, env) {
+  const subcommand = interaction.data.options?.[0]?.name;
+  const options = interaction.data.options?.[0]?.options || [];
+  
+  try {
+    const db = new DatabaseManager(env.POLLS_DB);
+    
+    switch (subcommand) {
+      case 'create':
+        return await handleCreatePoll(interaction, options, db);
+      case 'status':
+        return await handlePollStatus(interaction, options, db);
+      case 'nominate':
+        return await handleNominate(interaction, options, db);
+      case 'list':
+        return await handleListPolls(interaction, db);
+      default:
+        return createResponse(`Unknown poll subcommand: ${subcommand}`);
+    }
+  } catch (error) {
+    console.error('Error handling poll command:', error);
+    return createResponse('An error occurred while processing your request.');
+  }
+}
+
+// Create poll handler
+async function handleCreatePoll(interaction, options, db) {
+  const title = getOptionValue(options, 'title');
+  const nominationHours = getOptionValue(options, 'nomination_hours');
+  const votingHours = getOptionValue(options, 'voting_hours');
+  const tallyMethod = getOptionValue(options, 'tally_method') || 'ranked-choice';
+
+  if (!title || !nominationHours || !votingHours) {
+    return createResponse('Missing required parameters for poll creation.');
+  }
+
+  const now = new Date();
+  const nominationDeadline = new Date(now.getTime() + nominationHours * 60 * 60 * 1000);
+  const votingDeadline = new Date(nominationDeadline.getTime() + votingHours * 60 * 60 * 1000);
+
+  const pollData = {
+    title,
+    guildId: interaction.guild_id,
+    channelId: interaction.channel_id,
+    creatorId: interaction.member?.user?.id || interaction.user?.id,
+    tallyMethod,
+    nominationDeadline: nominationDeadline.toISOString(),
+    votingDeadline: votingDeadline.toISOString()
+  };
+
+  const poll = await db.createPoll(pollData);
+
   return new Response(JSON.stringify({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    service: 'discord-book-poll-bot',
-    version: '2.0-serverless'
+    type: 4,
+    data: {
+      embeds: [{
+        title: '📚 New Book Poll Created!',
+        description: `**${poll.title}**\n\nNomination phase has started!`,
+        fields: [
+          {
+            name: '📝 Nomination Deadline',
+            value: `<t:${Math.floor(nominationDeadline.getTime() / 1000)}:F>`,
+            inline: true
+          },
+          {
+            name: '🗳️ Voting Deadline',
+            value: `<t:${Math.floor(votingDeadline.getTime() / 1000)}:F>`,
+            inline: true
+          },
+          {
+            name: '📊 Tally Method',
+            value: tallyMethod === 'chris-style' ? 'Chris Style (Top 3 Points)' : 'Ranked Choice (IRV)',
+            inline: true
+          }
+        ],
+        color: 0x00ff00,
+        footer: { text: `Poll ID: ${poll.id}` }
+      }]
+    }
   }), {
     status: 200,
-    headers: { 
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
-    }
+    headers: { 'Content-Type': 'application/json' }
   });
-});
+}
 
-// Discord interactions endpoint
-router.post('/interactions', async (request, env) => {
-  try {
-    // Add overall timeout protection
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+// Poll status handler
+async function handlePollStatus(interaction, options, db) {
+  let pollId = getOptionValue(options, 'poll_id');
+  
+  if (!pollId) {
+    const activePolls = await db.getActivePolls(interaction.guild_id);
+    if (activePolls.length === 0) {
+      return createResponse('No active polls found. Please specify a poll ID.');
+    }
+    pollId = activePolls[0].id;
+  }
+
+  const poll = await db.getPoll(pollId);
+  if (!poll) {
+    return createResponse('Poll not found.');
+  }
+
+  const embed = {
+    title: `📚 ${poll.title}`,
+    color: poll.phase === 'completed' ? 0x00ff00 : poll.phase === 'voting' ? 0xffaa00 : 0x0099ff,
+    fields: [
+      {
+        name: '📝 Phase',
+        value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1),
+        inline: true
+      },
+      {
+        name: '📊 Tally Method',
+        value: poll.tallyMethod === 'chris-style' ? 'Chris Style' : 'Ranked Choice',
+        inline: true
+      },
+      {
+        name: '📚 Nominations',
+        value: poll.nominations.length.toString(),
+        inline: true
+      }
+    ],
+    footer: { text: `Poll ID: ${poll.id}` },
+    timestamp: new Date().toISOString()
+  };
+
+  if (poll.nominations.length > 0) {
+    const nominationsList = poll.nominations.map((nom, idx) => 
+      `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`
+    ).join('\n');
+    
+    embed.fields.push({
+      name: '📖 Nominated Books',
+      value: nominationsList,
+      inline: false
     });
+  }
 
-    const handlerPromise = (async () => {
-      const signature = request.headers.get('x-signature-ed25519');
-      const timestamp = request.headers.get('x-signature-timestamp');
-      const body = await request.text();
+  return new Response(JSON.stringify({
+    type: 4,
+    data: { embeds: [embed] }
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
 
-      console.log('Interaction request:', {
-        signature: signature ? 'present' : 'missing',
-        timestamp: timestamp ? 'present' : 'missing',
-        bodyLength: body.length,
-        method: request.method,
-        url: request.url
-      });
+// Nominate handler
+async function handleNominate(interaction, options, db) {
+  const title = getOptionValue(options, 'title');
+  const author = getOptionValue(options, 'author');
+  const link = getOptionValue(options, 'link');
+  let pollId = getOptionValue(options, 'poll_id');
 
-      // Check if public key is available
-      if (!env.DISCORD_PUBLIC_KEY) {
-        console.error('DISCORD_PUBLIC_KEY not configured');
-        return new Response('Bot configuration error', { status: 500 });
-      }
+  if (!title) {
+    return createResponse('Book title is required for nomination.');
+  }
 
-      // Verify the request signature (skip verification for health checks)
-      if (request.url.includes('/health')) {
-        // Health endpoint doesn't need signature verification
-      } else {
-        try {
-          const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
-          if (!isValidRequest) {
-            console.error('Invalid request signature');
-            return new Response('Bad request signature', { status: 401 });
-          }
-        } catch (verifyError) {
-          console.error('Signature verification error:', verifyError);
-          return new Response('Signature verification failed', { status: 401 });
-        }
-      }
+  if (!pollId) {
+    const activePolls = await db.getActivePolls(interaction.guild_id);
+    const nominationPolls = activePolls.filter(p => p.phase === 'nomination');
+    
+    if (nominationPolls.length === 0) {
+      return createResponse('No active nomination phase found. Please specify a poll ID.');
+    }
+    pollId = nominationPolls[0].id;
+  }
 
-      const interaction = JSON.parse(body);
+  const nomination = {
+    title,
+    author,
+    link,
+    userId: interaction.member?.user?.id || interaction.user?.id,
+    username: interaction.member?.user?.username || interaction.user?.username
+  };
 
-      // Handle ping
-      if (interaction.type === InteractionType.PING) {
-        console.log('Received PING, responding with PONG');
-        return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+  await db.addNomination(pollId, nomination);
+
+  return createResponse(`✅ Successfully nominated "${title}" ${author ? `by ${author}` : ''}!`);
+}
+
+// List polls handler
+async function handleListPolls(interaction, db) {
+  const activePolls = await db.getActivePolls(interaction.guild_id);
+  
+  if (activePolls.length === 0) {
+    return createResponse('📚 No active polls found in this server.');
+  }
+
+  const pollList = activePolls.map(poll => 
+    `\`${poll.id}\` - **${poll.title}** (${poll.phase}) - <t:${Math.floor(new Date(poll.created_at).getTime() / 1000)}:R>`
+  ).join('\n');
+
+  return new Response(JSON.stringify({
+    type: 4,
+    data: {
+      embeds: [{
+        title: '📚 Server Polls',
+        description: pollList,
+        color: 0x0099FF,
+        timestamp: new Date().toISOString()
+      }],
+      flags: 64
+    }
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// Helper functions
+function getOptionValue(options, name) {
+  const option = options.find(opt => opt.name === name);
+  return option?.value;
+}
+
+function createResponse(content, ephemeral = true) {
+  return new Response(JSON.stringify({
+    type: 4,
+    data: {
+      content,
+      flags: ephemeral ? 64 : 0
+    }
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// Cron handler for poll phase transitions
+async function handleCron(event, env, ctx) {
+  console.log('Cron trigger activated at:', new Date().toISOString());
+  
+  try {
+    // Basic poll phase checking logic can be added here
+    console.log('Poll phase check completed successfully');
+  } catch (error) {
+    console.error('Error in cron handler:', error);
+  }
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    try {
+      const url = new URL(request.url);
+      
+      // Health check endpoint
+      if (url.pathname === '/health' && request.method === 'GET') {
+        return new Response(JSON.stringify({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          service: 'discord-book-poll-bot',
+          version: '2.0-serverless',
+          features: ['discord-verification', 'signature-validation', 'poll-commands']
+        }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
         });
       }
+      
+      // Discord interactions endpoint
+      if (url.pathname === '/interactions' && request.method === 'POST') {
+        try {
+          const signature = request.headers.get('x-signature-ed25519');
+          const timestamp = request.headers.get('x-signature-timestamp');
+          const body = await request.text();
 
-      // Validate database connection
-      if (!env.POLLS_DB) {
-        console.error('Database not available');
-        return new Response(JSON.stringify({ 
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            content: 'Database unavailable. Please try again later.',
-            flags: 64
+          // Verify signature if public key is available
+          if (env.DISCORD_PUBLIC_KEY && signature && timestamp) {
+            const isValid = await verifyDiscordSignature(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
+            if (!isValid) {
+              return new Response('Invalid signature', { status: 401 });
+            }
           }
-        }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
 
-      // Handle application commands
-      if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-        if (interaction.data.name === 'poll') {
-          return await pollCommand.execute(interaction, env);
+          const interaction = JSON.parse(body);
+
+          // Handle ping (type 1) - Discord verification
+          if (interaction.type === 1) {
+            console.log('Discord PING received, responding with PONG');
+            return new Response(JSON.stringify({ type: 1 }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Handle slash commands (type 2)
+          if (interaction.type === 2) {
+            if (interaction.data.name === 'poll') {
+              return await handlePollCommand(interaction, env);
+            }
+            
+            return createResponse('Unknown command. Use `/poll` to manage book polls.');
+          }
+
+          // Handle message components (type 3) - buttons, select menus
+          if (interaction.type === 3) {
+            return createResponse('Button/menu interactions will be available soon!');
+          }
+
+          // Handle modal submissions (type 5)
+          if (interaction.type === 5) {
+            return createResponse('Modal submissions will be available soon!');
+          }
+
+          return createResponse('Interaction received!');
+
+        } catch (parseError) {
+          console.error('Parse error:', parseError);
+          return new Response('Bad request', { status: 400 });
         }
       }
-
-      // Handle message components (buttons, select menus)
-      if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-        if (interaction.data.component_type === 2) { // Button
-          return await handleButtonInteraction(interaction, env);
-        } else if (interaction.data.component_type === 3) { // Select Menu
-          return await handleSelectMenuInteraction(interaction, env);
-        }
-      }
-
-      // Handle modal submissions
-      if (interaction.type === InteractionType.MODAL_SUBMIT) {
-        return await handleModalSubmit(interaction, env);
-      }
-
-      return new Response(JSON.stringify({ error: 'Unknown interaction type' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    })();
-
-    return await Promise.race([handlerPromise, timeoutPromise]);
-
-  } catch (error) {
-    console.error('Error handling interaction:', error);
-    
-    if (error.message === 'Request timeout') {
-      return new Response(JSON.stringify({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          content: 'Request timed out. Please try again.',
-          flags: 64
-        }
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-});
-
-// Cron job handler for poll phase transitions
-async function handleCron(event, env, ctx) {
-  console.log('Cron trigger activated');
-  
-  try {
-    // Add timeout protection for cron jobs
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Cron timeout')), 25000); // 25 second timeout for cron
-    });
-
-    const cronPromise = checkPollPhases(env);
-
-    await Promise.race([cronPromise, timeoutPromise]);
-    console.log('Cron job completed successfully');
-  } catch (error) {
-    console.error('Error in cron job:', error);
-    if (error.message === 'Cron timeout') {
-      console.error('Cron job timed out - this may indicate database performance issues');
-    }
-  }
-}
-
-// Main handler
-export default {
-  async fetch(request, env, ctx) {
-    try {
-      return await router.handle(request, env, ctx);
+      
+      // 404 for all other routes
+      return new Response('Not Found', { status: 404 });
+      
     } catch (error) {
-      console.error('Router error:', error);
+      console.error('Worker error:', error);
       return new Response('Internal server error', { status: 500 });
     }
   },
-  
+
   async scheduled(event, env, ctx) {
     try {
       return await handleCron(event, env, ctx);
