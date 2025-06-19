@@ -21,55 +21,90 @@ router.get('/health', () => {
 // Discord interactions endpoint
 router.post('/interactions', async (request, env) => {
   try {
-    const signature = request.headers.get('x-signature-ed25519');
-    const timestamp = request.headers.get('x-signature-timestamp');
-    const body = await request.text();
+    // Add overall timeout protection
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+    });
 
-    // Verify the request signature
-    const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
-    if (!isValidRequest) {
-      return new Response('Bad request signature', { status: 401 });
-    }
+    const handlerPromise = (async () => {
+      const signature = request.headers.get('x-signature-ed25519');
+      const timestamp = request.headers.get('x-signature-timestamp');
+      const body = await request.text();
 
-    const interaction = JSON.parse(body);
+      // Verify the request signature
+      const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
+      if (!isValidRequest) {
+        return new Response('Bad request signature', { status: 401 });
+      }
 
-    // Handle ping
-    if (interaction.type === InteractionType.PING) {
-      return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+      const interaction = JSON.parse(body);
+
+      // Handle ping
+      if (interaction.type === InteractionType.PING) {
+        return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Validate database connection
+      if (!env.POLLS_DB) {
+        console.error('Database not available');
+        return new Response(JSON.stringify({ 
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: 'Database unavailable. Please try again later.',
+            flags: 64
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Handle application commands
+      if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+        if (interaction.data.name === 'poll') {
+          return await pollCommand.execute(interaction, env);
+        }
+      }
+
+      // Handle message components (buttons, select menus)
+      if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
+        if (interaction.data.component_type === 2) { // Button
+          return await handleButtonInteraction(interaction, env);
+        } else if (interaction.data.component_type === 3) { // Select Menu
+          return await handleSelectMenuInteraction(interaction, env);
+        }
+      }
+
+      // Handle modal submissions
+      if (interaction.type === InteractionType.MODAL_SUBMIT) {
+        return await handleModalSubmit(interaction, env);
+      }
+
+      return new Response(JSON.stringify({ error: 'Unknown interaction type' }), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
-    }
+    })();
 
-    // D1 database is automatically available via env.POLLS_DB
-
-    // Handle application commands
-    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-      if (interaction.data.name === 'poll') {
-        return await pollCommand.execute(interaction, env);
-      }
-    }
-
-    // Handle message components (buttons, select menus)
-    if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-      if (interaction.data.component_type === 2) { // Button
-        return await handleButtonInteraction(interaction, env);
-      } else if (interaction.data.component_type === 3) { // Select Menu
-        return await handleSelectMenuInteraction(interaction, env);
-      }
-    }
-
-    // Handle modal submissions
-    if (interaction.type === InteractionType.MODAL_SUBMIT) {
-      return await handleModalSubmit(interaction, env);
-    }
-
-    return new Response(JSON.stringify({ error: 'Unknown interaction type' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return await Promise.race([handlerPromise, timeoutPromise]);
 
   } catch (error) {
     console.error('Error handling interaction:', error);
+    
+    if (error.message === 'Request timeout') {
+      return new Response(JSON.stringify({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: 'Request timed out. Please try again.',
+          flags: 64
+        }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

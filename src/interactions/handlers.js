@@ -7,46 +7,56 @@ export async function handleButtonInteraction(interaction, env) {
         const pollId = interaction.data.custom_id.replace('vote_', '');
         
         try {
-            const pollManager = new PollManager(env);
-            const poll = await pollManager.getPoll(pollId);
-            
-            if (!poll) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'Poll not found!',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            if (poll.phase !== 'voting') {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: `This poll is currently in the ${poll.phase} phase. Voting is not available yet.`,
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-            
-            // Check if user already voted
-            const existingVote = poll.votes ? poll.votes.find(v => v.userId === interaction.member.user.id) : null;
-            if (existingVote) {
-                return new Response(JSON.stringify({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'You have already voted in this poll!',
-                        flags: 64 // Ephemeral
-                    }
-                }), {
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
+            // Add timeout protection
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Handler timeout')), 8000);
+            });
+
+            const handlerPromise = (async () => {
+                const pollManager = new PollManager(env);
+                const poll = await pollManager.getPoll(pollId);
+                
+                if (!poll) {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'Poll not found!',
+                            flags: 64 // Ephemeral
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                
+                if (poll.phase !== 'voting') {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: `This poll is currently in the ${poll.phase} phase. Voting is not available yet.`,
+                            flags: 64 // Ephemeral
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                
+                // Check if user already voted using efficient query
+                const userId = interaction.member?.user?.id || interaction.user?.id;
+                const existingVote = await pollManager.db.prepare(`
+                    SELECT id FROM votes WHERE poll_id = ? AND user_id = ?
+                `).bind(pollId, userId).first();
+                
+                if (existingVote) {
+                    return new Response(JSON.stringify({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'You have already voted in this poll!',
+                            flags: 64 // Ephemeral
+                        }
+                    }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
             
             // For chris-style voting, use dropdown menus
             if (poll.tallyMethod === 'chris-style') {

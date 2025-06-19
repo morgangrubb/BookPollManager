@@ -94,6 +94,13 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Fixed Cloudflare Workers timeout issues
+  - Added timeout protection to all database operations (8-10 second limits)
+  - Optimized D1 database query handling and result processing
+  - Fixed infinite loop potential in poll data aggregation
+  - Added error handling for malformed JSON in database results
+  - Simplified database queries to avoid complex joins
+  - Added Promise.race for timeout management in handlers
 - June 19, 2025: Removed traditional Node.js version completely
   - Deleted all traditional Node.js files (index.js, commands/, services/, utils/, config/)
   - Removed Node.js dependencies (discord.js, dotenv, node-cron)

@@ -121,42 +121,53 @@ export const pollCommand = {
     },
 
     async execute(interaction, env) {
-        const subcommand = interaction.data.options[0].name;
-        const options = interaction.data.options[0].options || [];
+        const subcommand = interaction.data.options?.[0]?.name;
+        const options = interaction.data.options?.[0]?.options || [];
         
         try {
-            const pollManager = new PollManager(env);
-            
-            switch (subcommand) {
-                case 'create':
-                    return await this.handleCreate(interaction, options, pollManager);
-                case 'status':
-                    return await this.handleStatus(interaction, options, pollManager);
-                case 'nominate':
-                    return await this.handleNominate(interaction, options, pollManager);
-                case 'list':
-                    return await this.handleList(interaction, pollManager);
-                case 'end-nominations':
-                    return await this.handleEndNominations(interaction, options, pollManager);
-                case 'end-voting':
-                    return await this.handleEndVoting(interaction, options, pollManager);
-                default:
-                    return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: 'Unknown subcommand',
-                            flags: 64 // Ephemeral
-                        }
-                    }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-            }
+            // Add timeout protection
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Command timeout')), 8000);
+            });
+
+            const commandPromise = (async () => {
+                const pollManager = new PollManager(env);
+                
+                switch (subcommand) {
+                    case 'create':
+                        return await this.handleCreate(interaction, options, pollManager);
+                    case 'status':
+                        return await this.handleStatus(interaction, options, pollManager);
+                    case 'nominate':
+                        return await this.handleNominate(interaction, options, pollManager);
+                    case 'list':
+                        return await this.handleList(interaction, pollManager);
+                    case 'end-nominations':
+                        return await this.handleEndNominations(interaction, options, pollManager);
+                    case 'end-voting':
+                        return await this.handleEndVoting(interaction, options, pollManager);
+                    default:
+                        return new Response(JSON.stringify({
+                            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                            data: {
+                                content: 'Unknown subcommand',
+                                flags: 64 // Ephemeral
+                            }
+                        }), {
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                }
+            })();
+
+            return await Promise.race([commandPromise, timeoutPromise]);
         } catch (error) {
             console.error('Error executing poll command:', error);
             return new Response(JSON.stringify({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: `Error: ${error.message}`,
+                    content: error.message === 'Command timeout' ? 
+                        'Request timed out. Please try again.' : 
+                        `Error: ${error.message}`,
                     flags: 64 // Ephemeral
                 }
             }), {
@@ -166,26 +177,35 @@ export const pollCommand = {
     },
 
     async handleCreate(interaction, options, pollManager) {
-        const title = options.find(opt => opt.name === 'title').value;
-        const nominationHours = options.find(opt => opt.name === 'nomination_hours').value;
-        const votingHours = options.find(opt => opt.name === 'voting_hours').value;
-        const tallyMethod = options.find(opt => opt.name === 'tally_method')?.value || 'ranked-choice';
+        try {
+            const title = options.find(opt => opt.name === 'title')?.value;
+            const nominationHours = options.find(opt => opt.name === 'nomination_hours')?.value;
+            const votingHours = options.find(opt => opt.name === 'voting_hours')?.value;
+            const tallyMethod = options.find(opt => opt.name === 'tally_method')?.value || 'ranked-choice';
 
-        const now = new Date();
-        const nominationDeadline = new Date(now.getTime() + nominationHours * 60 * 60 * 1000);
-        const votingDeadline = new Date(nominationDeadline.getTime() + votingHours * 60 * 60 * 1000);
+            if (!title || !nominationHours || !votingHours) {
+                throw new Error('Missing required parameters');
+            }
 
-        const pollData = {
-            title,
-            guildId: interaction.guild_id,
-            channelId: interaction.channel_id,
-            creatorId: interaction.member.user.id,
-            nominationDeadline: nominationDeadline.toISOString(),
-            votingDeadline: votingDeadline.toISOString(),
-            tallyMethod
-        };
+            const now = new Date();
+            const nominationDeadline = new Date(now.getTime() + nominationHours * 60 * 60 * 1000);
+            const votingDeadline = new Date(nominationDeadline.getTime() + votingHours * 60 * 60 * 1000);
 
-        const poll = await pollManager.createPoll(pollData);
+            const pollData = {
+                title,
+                guildId: interaction.guild_id,
+                channelId: interaction.channel_id,
+                creatorId: interaction.member?.user?.id || interaction.user?.id,
+                nominationDeadline: nominationDeadline.toISOString(),
+                votingDeadline: votingDeadline.toISOString(),
+                tallyMethod
+            };
+
+            const poll = await pollManager.createPoll(pollData);
+            
+            if (!poll) {
+                throw new Error('Failed to create poll');
+            }
 
         const embed = {
             title: '📚 New Book Poll Created!',
