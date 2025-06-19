@@ -13,6 +13,7 @@
     "wrangler": "^4.20.3"
   },
   "dependencies": {
-    "discord-interactions": "^4.3.0"
+    "discord-interactions": "^4.3.0",
+    "itty-router": "^5.0.18"
   }
 }
