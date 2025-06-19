@@ -242,7 +242,9 @@ async function handleNominate(interaction, options, pollManager) {
     if (channelId) {
       const announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
       
-      await sendDiscordMessage(channelId, announcementContent, env);
+      console.log('Sending nomination announcement to channel:', channelId);
+      await sendDiscordMessage(channelId, announcementContent, pollManager.env);
+      console.log('Nomination announcement sent successfully');
     }
   } catch (error) {
     console.error('Failed to announce nomination:', error);
@@ -307,7 +309,9 @@ async function handleWithdrawNomination(interaction, options, pollManager) {
       try {
         const announcementContent = `📖 **Nomination Withdrawn**\n\n**${userNomination.title}**${userNomination.author ? ` by ${userNomination.author}` : ''}\n\nWithdrawn by <@${userId}> from **${poll.title}**`;
         
-        await sendDiscordMessage(poll.channelId, announcementContent, env);
+        console.log('Sending withdrawal announcement to channel:', poll.channelId);
+        await sendDiscordMessage(poll.channelId, announcementContent, pollManager.env);
+        console.log('Withdrawal announcement sent successfully');
       } catch (error) {
         console.error('Failed to announce withdrawal:', error);
       }

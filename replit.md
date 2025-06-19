@@ -94,6 +94,13 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Added channel announcements for nominations and withdrawals
+  - Implemented automatic channel announcements when users nominate books
+  - Added withdrawal announcements when users remove their nominations
+  - Messages include book details, user mentions, and poll context
+  - Announcements sent to the poll's designated channel using Discord API
+  - Added error handling to prevent nomination failures if announcements fail
+  - Enhanced user engagement with real-time poll activity notifications
 - June 19, 2025: Implemented deployment-integrated command registration system
   - Created automatic Discord command registration during Cloudflare Worker deployment
   - Replaced separate register-commands.js with src/deploy-commands.js that runs during build
