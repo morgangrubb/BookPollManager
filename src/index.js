@@ -2,21 +2,7 @@
 import { DatabaseManager } from './db-manager.js';
 import { PollManager } from './services/pollManager.js';
 import { checkPollPhases } from './services/scheduler.js';
-import { 
-  handleCreatePoll,
-  handlePollStatus,
-  handleNominate,
-  handleListPolls,
-  handleWithdrawNomination,
-  handleVote,
-  handleRemoveNomination,
-  handleEndNominations,
-  handleEndVoting,
-  handleDeletePoll,
-  handleButtonInteraction, 
-  handleSelectMenuInteraction, 
-  handleModalSubmit 
-} from './interactions/handlers.js';
+import { handleButtonInteraction, handleSelectMenuInteraction, handleModalSubmit } from './interactions/handlers.js';
 
 
 
