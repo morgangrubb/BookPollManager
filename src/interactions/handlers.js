@@ -81,6 +81,7 @@ export async function handlePollStatus(interaction, options, pollManager) {
 
     const embed = {
       title: `📚 ${poll.title}`,
+      description: poll.creatorId ? `Created by <@${poll.creatorId}>` : null,
       color: poll.phase === 'nomination' ? 0x0099FF : poll.phase === 'voting' ? 0xFF9900 : 0x808080,
       fields: [
         {
@@ -96,11 +97,6 @@ export async function handlePollStatus(interaction, options, pollManager) {
         {
           name: '📚 Nominations',
           value: poll.nominations?.length?.toString() || '0',
-          inline: true
-        },
-        {
-          name: '👤 Created By',
-          value: poll.creatorId ? `<@${poll.creatorId}>` : 'Unknown',
           inline: true
         }
       ],
