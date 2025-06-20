@@ -100,7 +100,7 @@ export async function handlePollStatus(interaction, options, pollManager) {
         },
         {
           name: '👤 Created By',
-          value: poll.creatorId ? `<@${poll.creatorId}>` : 'Unknown User',
+          value: poll.creatorId ? `<@${poll.creatorId}>` : 'Unknown',
           inline: true
         }
       ],

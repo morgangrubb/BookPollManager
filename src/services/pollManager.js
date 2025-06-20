@@ -50,7 +50,9 @@ export class PollManager {
         try {
             // Get poll data
             const pollResult = await this.db.prepare(`
-                SELECT * FROM polls WHERE id = ?
+                SELECT id, title, guild_id, channel_id, creator_id, phase, tally_method, 
+                       nomination_deadline, voting_deadline, created_at, updated_at, results_data
+                FROM polls WHERE id = ?
             `).bind(pollId).first();
             
             if (!pollResult) {
@@ -88,7 +90,7 @@ export class PollManager {
                 title: pollResult.title,
                 guildId: pollResult.guild_id,
                 channelId: pollResult.channel_id,
-                creatorId: pollResult.creator_id,
+                creatorId: pollResult.creator_id || null,
                 phase: pollResult.phase,
                 tallyMethod: pollResult.tally_method,
                 nominationDeadline: pollResult.nomination_deadline,
