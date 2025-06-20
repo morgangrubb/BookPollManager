@@ -482,6 +482,76 @@ async function handleEndVoting(interaction, options, pollManager) {
   }
 }
 
+// Delete poll handler
+async function handleDeletePoll(interaction, options, pollManager) {
+  const guildId = interaction.guild_id || interaction.guildId;
+  const userId = interaction?.member?.user?.id || interaction?.user?.id;
+  const userPermissions = interaction?.member?.permissions;
+  
+  if (!userId) {
+    return createResponse('❌ Unable to identify user.', true);
+  }
+
+  const pollId = getOptionValue(options, 'poll_id');
+  const confirmText = getOptionValue(options, 'confirm');
+  
+  if (!pollId) {
+    return createResponse('❌ Poll ID is required.', true);
+  }
+
+  if (confirmText !== 'DELETE') {
+    return createResponse('❌ To confirm deletion, you must type "DELETE" exactly.', true);
+  }
+
+  const poll = await pollManager.getPoll(pollId);
+  if (!poll) {
+    return createResponse('❌ Poll not found.', true);
+  }
+
+  if (poll.guildId !== guildId) {
+    return createResponse('❌ Poll not found in this server.', true);
+  }
+
+  // Check permissions: poll creator or server admin
+  const isCreator = poll.creatorId === userId;
+  const isAdmin = userPermissions && (parseInt(userPermissions) & 0x8) === 0x8; // ADMINISTRATOR permission
+  
+  if (!isCreator && !isAdmin) {
+    return createResponse('❌ Only the poll creator or server administrators can delete polls.', true);
+  }
+
+  try {
+    const deleted = await pollManager.deletePoll(pollId);
+    
+    if (!deleted) {
+      return createResponse('❌ Failed to delete poll. It may have already been deleted.', true);
+    }
+
+    // Send deletion announcement to the channel
+    if (poll.channelId) {
+      try {
+        await sendDiscordMessage(poll.channelId, {
+          embeds: [{
+            title: '🗑️ Poll Deleted',
+            description: `**${poll.title}** has been deleted by <@${userId}>.`,
+            color: 0xFF0000,
+            footer: { text: `Poll ID: ${pollId}` },
+            timestamp: new Date().toISOString()
+          }]
+        }, pollManager.env);
+      } catch (error) {
+        console.error('Failed to send deletion announcement:', error);
+      }
+    }
+
+    return createResponse(`✅ Poll "${poll.title}" has been successfully deleted.`, true);
+    
+  } catch (error) {
+    console.error('Error deleting poll:', error);
+    return createResponse('❌ An error occurred while deleting the poll. Please try again.', true);
+  }
+}
+
 // Discord message sending helper
 async function sendDiscordMessage(channelId, content, env) {
   const url = `https://discord.com/api/v10/channels/${channelId}/messages`;
