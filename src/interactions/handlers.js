@@ -77,9 +77,7 @@ export async function handlePollStatus(interaction, options, pollManager) {
       return createResponse('Poll not found.');
     }
 
-    // Debug log to check poll data
-    console.log('Poll creator ID:', poll.creatorId);
-    console.log('Poll object keys:', Object.keys(poll));
+
 
     const embed = {
       title: `📚 ${poll.title}`,
@@ -100,17 +98,17 @@ export async function handlePollStatus(interaction, options, pollManager) {
           value: poll.nominations?.length?.toString() || '0',
           inline: true
         },
-        {
+        ...(poll.creatorId ? [{
           name: '👤 Created By',
-          value: poll.creatorId ? `<@${poll.creatorId}>` : 'Unknown',
+          value: `<@${poll.creatorId}>`,
           inline: true
-        }
+        }] : [])
       ],
       footer: { text: `Poll ID: ${poll.id}` },
       timestamp: new Date().toISOString()
     };
 
-    console.log('Embed fields:', JSON.stringify(embed.fields, null, 2));
+
 
     if (poll.nominations && poll.nominations.length > 0) {
       const nominationsList = poll.nominations.map((nom, idx) => 

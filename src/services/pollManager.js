@@ -97,6 +97,8 @@ export class PollManager {
                 votes: [],
                 results: null
             };
+
+
             
             // Process nominations safely
             if (nominationsResult?.results) {
