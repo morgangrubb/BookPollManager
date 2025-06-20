@@ -174,7 +174,8 @@ export async function handleNominate(interaction, options, pollManager) {
     const channelId = poll.channelId || interaction.channel_id;
     
     if (channelId) {
-      const announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
+      const linkText = link ? ` [🔗 Link](${link})` : '';
+      const announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}${linkText}\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
       
       console.log('Sending nomination announcement to channel:', channelId);
       const result = await sendDiscordMessage(channelId, announcementContent, pollManager.env);
@@ -243,7 +244,8 @@ export async function handleWithdrawNomination(interaction, options, pollManager
     // Announce withdrawal to channel (optional, don't fail if it doesn't work)
     if (userNomination && poll.channelId) {
       try {
-        const announcementContent = `📖 **Nomination Withdrawn**\n\n**${userNomination.title}**${userNomination.author ? ` by ${userNomination.author}` : ''}\n\nWithdrawn by <@${userId}> from **${poll.title}**`;
+        const linkText = userNomination.link ? ` [🔗 Link](${userNomination.link})` : '';
+        const announcementContent = `📖 **Nomination Withdrawn**\n\n**${userNomination.title}**${userNomination.author ? ` by ${userNomination.author}` : ''}${linkText}\n\nWithdrawn by <@${userId}> from **${poll.title}**`;
         
         console.log('Sending withdrawal announcement to channel:', poll.channelId);
         const result = await sendDiscordMessage(poll.channelId, announcementContent, pollManager.env);
