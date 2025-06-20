@@ -94,6 +94,12 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 20, 2025: Fixed three critical UI/UX issues for better user experience
+  - Fixed nomination announcements to include clickable book links in channel notifications
+  - Enhanced book link display in poll status with proper Discord markdown formatting
+  - Improved poll list timestamp handling to show "Recently created" instead of "Unknown date"
+  - All link formatting now working correctly across status displays and announcements
+  - Poll list now handles missing creation dates gracefully with fallback messaging
 - June 20, 2025: Completed comprehensive bot improvements and bug fixes
   - Fixed poll list display: removed "NaN" timestamps, added proper pagination for >10 polls
   - Enhanced nomination links: book links now display as clickable elements in poll status
