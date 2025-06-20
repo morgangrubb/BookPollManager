@@ -296,18 +296,6 @@ async function handleListPolls(interaction, pollManager) {
     type: 4,
     data: {
       embeds: [embed],
-      flags: 64 // ephemeral
-    }
-  }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
-      embeds: [{
-        title: '📚 Server Polls',
-        description: pollList,
-        color: 0x0099FF,
-        timestamp: new Date().toISOString()
-      }],
       flags: 64
     }
   }), {
@@ -452,7 +440,19 @@ async function handleEndNominations(interaction, options, pollManager) {
 
   try {
     await pollManager.updatePollPhase(pollId, 'voting');
-    return createResponse('✅ Nomination phase ended. Voting phase has begun!');
+    
+    // Send voting phase announcement to the channel
+    if (poll.channelId) {
+      try {
+        const updatedPoll = await pollManager.getPoll(pollId);
+        const { announceVotingPhase } = await import('./services/scheduler.js');
+        await announceVotingPhase(updatedPoll, pollManager.env);
+      } catch (error) {
+        console.error('Failed to announce voting phase:', error);
+      }
+    }
+    
+    return createResponse(`✅ Nomination phase ended early for "${poll.title}". Voting phase has started!`);
   } catch (error) {
     return createResponse(`❌ ${error.message}`);
   }
