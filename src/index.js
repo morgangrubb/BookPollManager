@@ -280,9 +280,28 @@ async function handleListPolls(interaction, pollManager) {
     return `\`${poll.id}\` - **${poll.title}** (${poll.phase}) - ${timeDisplay}`;
   }).join('\n');
 
+  const embed = {
+    title: '📚 Server Polls',
+    description: pollList,
+    color: 0x0099FF,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Add pagination info if there are more polls
+  if (totalPages > 1) {
+    embed.footer = { text: `Showing 1-${currentPolls.length} of ${activePolls.length} polls (Page 1/${totalPages})` };
+  }
+
   return new Response(JSON.stringify({
     type: 4,
     data: {
+      embeds: [embed],
+      flags: 64 // ephemeral
+    }
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
       embeds: [{
         title: '📚 Server Polls',
         description: pollList,
