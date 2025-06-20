@@ -726,25 +726,160 @@ async function handleChrisStyleVoting(interaction, env, pollManager) {
     return generateChrisStyleVotingInterface(poll, userId, session.selections);
 }
 
-async function handleRankedChoiceSubmission(interaction, env, pollManager) {
-    const pollId = interaction.data.custom_id.replace('ranked_vote_', '');
+async function handleRankedChoiceVoting(interaction, env, pollManager) {
+    const customId = interaction.data.custom_id;
+    const pollId = customId.split('_')[2];
+    const rank = parseInt(customId.split('_')[4]);
     const userId = interaction.member?.user?.id || interaction.user?.id;
-    
-    // Parse rankings from modal input
-    const rankingsInput = interaction.data.components[0].components[0].value;
-    const rankings = rankingsInput.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
-    
-    await pollManager.submitVote(pollId, userId, rankings);
-    
-    return new Response(JSON.stringify({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-            content: '✅ Your vote has been submitted successfully!',
-            flags: 64
+    const selectedValue = interaction.data.values[0];
+
+    try {
+        // Get or create voting session
+        const userKey = `ranked_${pollId}_${userId}`;
+        let session = await pollManager.getVotingSession(userKey);
+        
+        if (!session) {
+            session = { pollId, userId, selections: {} };
         }
-    }), {
-        headers: { 'Content-Type': 'application/json' }
-    });
+
+        // Update selection for this rank
+        if (selectedValue === 'none') {
+            delete session.selections[rank];
+        } else {
+            const bookIndex = parseInt(selectedValue.split('_')[1]);
+            session.selections[rank] = bookIndex;
+        }
+
+        // Save updated session
+        await pollManager.setVotingSession(userKey, pollId, userId, session.selections);
+
+        // Show current selections
+        const poll = await pollManager.getPoll(pollId);
+        const nominations = poll.nominations || [];
+        
+        const currentSelections = Object.entries(session.selections)
+            .sort(([a], [b]) => parseInt(a) - parseInt(b))
+            .map(([rank, bookIdx]) => {
+                const book = nominations[bookIdx];
+                return `${rank}. ${book?.title || 'Unknown'} by ${book?.author || 'Unknown Author'}`;
+            });
+
+        const selectionsDisplay = currentSelections.length > 0 
+            ? `**Current Rankings:**\n${currentSelections.join('\n')}`
+            : 'No rankings selected yet.';
+
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: `✅ Ranking updated!\n\n${selectionsDisplay}\n\nContinue selecting your rankings, then click Submit when ready.`,
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: `❌ ${error.message}`,
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+}
+
+async function handleRankedChoiceSubmission(interaction, env, pollManager) {
+    const pollId = interaction.data.custom_id.split('_')[3];
+    const userId = interaction.member?.user?.id || interaction.user?.id;
+
+    try {
+        // Get voting session
+        const userKey = `ranked_${pollId}_${userId}`;
+        const session = await pollManager.getVotingSession(userKey);
+        
+        if (!session || Object.keys(session.selections).length === 0) {
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: '❌ Please make at least one ranking selection before submitting.',
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Get poll data
+        const poll = await pollManager.getPoll(pollId);
+        if (!poll || poll.phase !== 'voting') {
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: '❌ This poll is not in voting phase.',
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Convert selections to rankings format
+        const nominations = poll.nominations || [];
+        const rankings = Object.entries(session.selections)
+            .sort(([a], [b]) => parseInt(a) - parseInt(b))
+            .map(([rank, bookIdx]) => {
+                const book = nominations[bookIdx];
+                return {
+                    nominationId: book?.id || book?.title,
+                    title: book?.title,
+                    author: book?.author
+                };
+            });
+
+        if (rankings.length === 0) {
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: '❌ No valid rankings found. Please make your selections.',
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Submit vote
+        await pollManager.submitVote(pollId, userId, rankings);
+        
+        // Clean up session
+        await pollManager.deleteVotingSession(userKey);
+
+        const rankingsDisplay = rankings.map((book, idx) => 
+            `${idx + 1}. ${book.title} by ${book.author || 'Unknown Author'}`
+        ).join('\n');
+
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: `✅ Your ranked vote has been submitted!\n\n**Your Rankings:**\n${rankingsDisplay}`,
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: `❌ ${error.message}`,
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 }
 
 export function generateChrisStyleVotingInterface(poll, userId, existingSelections = []) {
