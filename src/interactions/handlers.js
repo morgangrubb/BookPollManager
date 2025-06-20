@@ -486,25 +486,33 @@ function createResponse(content, ephemeral = true) {
 }
 
 export async function handleButtonInteraction(interaction, env) {
-    if (interaction.data.custom_id.startsWith('vote_')) {
-        const pollId = interaction.data.custom_id.replace('vote_', '');
-        
-        try {
-            // Add timeout protection
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Handler timeout')), 8000);
-            });
+    try {
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Handler timeout')), 8000);
+        });
 
-            const handlerPromise = (async () => {
-                const pollManager = new PollManager(env);
+        const handlerPromise = (async () => {
+            const pollManager = new PollManager(env);
+            const customId = interaction.data.custom_id;
+            
+            // Handle submit buttons for voting
+            if (customId.startsWith('submit_chris_vote_')) {
+                return await handleChrisStyleSubmission(interaction, env, pollManager);
+            } else if (customId.startsWith('submit_ranked_vote_')) {
+                return await handleRankedChoiceSubmission(interaction, env, pollManager);
+            }
+            
+            // Handle legacy vote buttons
+            if (customId.startsWith('vote_')) {
+                const pollId = customId.replace('vote_', '');
                 const poll = await pollManager.getPoll(pollId);
                 
                 if (!poll) {
                     return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: 4,
                         data: {
                             content: 'Poll not found!',
-                            flags: 64 // Ephemeral
+                            flags: 64
                         }
                     }), {
                         headers: { 'Content-Type': 'application/json' }
@@ -513,28 +521,29 @@ export async function handleButtonInteraction(interaction, env) {
                 
                 if (poll.phase !== 'voting') {
                     return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: 4,
                         data: {
                             content: `This poll is currently in the ${poll.phase} phase. Voting is not available yet.`,
-                            flags: 64 // Ephemeral
+                            flags: 64
                         }
                     }), {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-                
-                // Check if user already voted using efficient query
+
                 const userId = interaction.member?.user?.id || interaction.user?.id;
+                
+                // Check if user already voted
                 const existingVote = await pollManager.db.prepare(`
                     SELECT id FROM votes WHERE poll_id = ? AND user_id = ?
                 `).bind(pollId, userId).first();
                 
                 if (existingVote) {
                     return new Response(JSON.stringify({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: 4,
                         data: {
                             content: 'You have already voted in this poll!',
-                            flags: 64 // Ephemeral
+                            flags: 64
                         }
                     }), {
                         headers: { 'Content-Type': 'application/json' }
@@ -547,34 +556,34 @@ export async function handleButtonInteraction(interaction, env) {
                 } else {
                     return generateRankedChoiceVotingInterface(poll);
                 }
-            })();
-
-            return await Promise.race([handlerPromise, timeoutPromise]);
-        } catch (error) {
-            console.error('Error handling vote button:', error);
+            }
+            
             return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                type: 4,
                 data: {
-                    content: error.message === 'Handler timeout' ? 
-                        'Request timed out. Please try again.' : 
-                        'An error occurred. Please try again.',
+                    content: `❌ Unknown button interaction: ${customId}`,
                     flags: 64
                 }
             }), {
                 headers: { 'Content-Type': 'application/json' }
             });
-        }
-    }
+        })();
 
-    return new Response(JSON.stringify({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-            content: 'Unknown button interaction',
-            flags: 64
-        }
-    }), {
-        headers: { 'Content-Type': 'application/json' }
-    });
+        return await Promise.race([handlerPromise, timeoutPromise]);
+    } catch (error) {
+        console.error('Error handling button interaction:', error);
+        return new Response(JSON.stringify({
+            type: 4,
+            data: {
+                content: error.message === 'Handler timeout' ? 
+                    'Request timed out. Please try again.' : 
+                    'An error occurred. Please try again.',
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 }
 
 export async function handleSelectMenuInteraction(interaction, env) {
