@@ -589,6 +589,8 @@ export async function handleSelectMenuInteraction(interaction, env) {
             
             if (customId.startsWith('chris_vote_')) {
                 return await handleChrisStyleVoting(interaction, env, pollManager);
+            } else if (customId.startsWith('ranked_choice_')) {
+                return await handleRankedChoiceVoting(interaction, env, pollManager);
             }
             
             return new Response(JSON.stringify({
@@ -927,28 +929,82 @@ export function generateChrisStyleVotingInterface(poll, userId, existingSelectio
 }
 
 export function generateRankedChoiceVotingInterface(poll) {
-    const nominations = poll.nominations;
-    const nominationsList = nominations.map((nom, idx) => 
-        `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`
-    ).join('\n');
+    const nominations = poll.nominations || [];
     
+    if (nominations.length === 0) {
+        return new Response(JSON.stringify({
+            type: 4,
+            data: {
+                content: '❌ No nominations available for voting.',
+                flags: 64
+            }
+        }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    // Create dropdown options for each book
+    const bookOptions = nominations.map((nom, idx) => ({
+        label: `${nom.title} by ${nom.author || 'Unknown Author'}`,
+        value: `book_${idx}`,
+        description: nom.title.length > 50 ? nom.title.substring(0, 47) + '...' : nom.title
+    }));
+
+    // Create multiple select components for ranking (up to 5 choices)
+    const components = [];
+    const maxRankings = Math.min(nominations.length, 5);
+
+    for (let i = 0; i < maxRankings; i++) {
+        const rank = i + 1;
+        const isRequired = i === 0; // Only first choice is required
+        
+        components.push({
+            type: 1, // ACTION_ROW
+            components: [
+                {
+                    type: 3, // SELECT_MENU
+                    custom_id: `ranked_choice_${poll.id}_rank_${rank}`,
+                    placeholder: `${rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : rank + 'th'} Choice${isRequired ? ' (Required)' : ' (Optional)'}`,
+                    options: [
+                        {
+                            label: '-- No Selection --',
+                            value: 'none',
+                            description: 'Skip this ranking'
+                        },
+                        ...bookOptions
+                    ],
+                    min_values: isRequired ? 1 : 0,
+                    max_values: 1
+                }
+            ]
+        });
+    }
+
+    // Add submit button
+    components.push({
+        type: 1, // ACTION_ROW
+        components: [
+            {
+                type: 2, // BUTTON
+                custom_id: `submit_ranked_vote_${poll.id}`,
+                label: 'Submit Ranked Vote',
+                style: 3, // SUCCESS
+                emoji: { name: '🗳️' }
+            }
+        ]
+    });
+
     return new Response(JSON.stringify({
-        type: InteractionResponseType.MODAL,
+        type: 4,
         data: {
-            title: 'Ranked Choice Voting',
-            custom_id: `ranked_vote_${poll.id}`,
-            components: [{
-                type: 1, // Action Row
-                components: [{
-                    type: 4, // Text Input
-                    custom_id: 'rankings',
-                    label: 'Enter your rankings (comma-separated numbers)',
-                    style: 2, // Paragraph
-                    placeholder: 'Example: 3,1,2 (ranks book 3 first, book 1 second, book 2 third)',
-                    required: true,
-                    max_length: 100
-                }]
-            }]
+            embeds: [{
+                title: `🗳️ Ranked Choice Voting: ${poll.title}`,
+                description: `Rank the books in order of preference. You must select at least your 1st choice.\n\n**Available Books:**\n${nominations.map((nom, idx) => `${idx + 1}. **${nom.title}** by ${nom.author || 'Unknown Author'}`).join('\n')}`,
+                color: 0xFF9900,
+                footer: { text: 'Select your rankings below, then click Submit' }
+            }],
+            components,
+            flags: 64
         }
     }), {
         headers: { 'Content-Type': 'application/json' }

@@ -94,6 +94,12 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 20, 2025: Updated ranked choice voting to use dropdown selects instead of text input
+  - Ranked choice voting now uses the same select dropdown interface as chris-style voting
+  - Users can rank up to 5 books using separate dropdown menus for 1st, 2nd, 3rd, 4th, and 5th choices
+  - First choice is required, additional choices are optional
+  - Includes submit button and real-time selection tracking with voting sessions
+  - Provides consistent user experience across both voting methods
 - June 20, 2025: Fixed three critical UI/UX issues for better user experience
   - Fixed nomination announcements to include clickable book links in channel notifications
   - Enhanced book link display in poll status with proper Discord markdown formatting
