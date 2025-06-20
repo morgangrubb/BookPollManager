@@ -98,11 +98,11 @@ export async function handlePollStatus(interaction, options, pollManager) {
           value: poll.nominations?.length?.toString() || '0',
           inline: true
         },
-        ...(poll.creatorId ? [{
+        {
           name: '👤 Created By',
-          value: `<@${poll.creatorId}>`,
+          value: poll.creatorId ? `<@${poll.creatorId}>` : 'Unknown User',
           inline: true
-        }] : [])
+        }
       ],
       footer: { text: `Poll ID: ${poll.id}` },
       timestamp: new Date().toISOString()

@@ -37,6 +37,8 @@ export class PollManager {
                 now
             ).run();
 
+
+
             return await this.getPoll(pollId);
         } catch (error) {
             console.error('Error creating poll:', error);
@@ -97,6 +99,8 @@ export class PollManager {
                 votes: [],
                 results: null
             };
+
+
 
 
             
