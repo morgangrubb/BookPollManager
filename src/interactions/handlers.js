@@ -996,7 +996,7 @@ export function generateRankedChoiceVotingInterface(poll) {
         });
     }
 
-    // Add submit button
+    // Add submit button - CRITICAL: Must be added separately
     components.push({
         type: 1, // ACTION_ROW
         components: [
