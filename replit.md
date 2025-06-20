@@ -94,6 +94,10 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 19, 2025: Added poll creator information to status responses
+  - Poll status now displays "Created By" field with creator mention
+  - Helps users identify who started each poll for better context
+  - Uses Discord user mention format for easy identification
 - June 19, 2025: Fixed Discord API rate limiting issues for channel announcements
   - Added proper rate limiting handling for Discord API calls (HTTP 429 errors)
   - Implemented 500ms delay between announcement requests to prevent rate limits
