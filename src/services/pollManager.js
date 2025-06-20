@@ -19,16 +19,17 @@ export class PollManager {
         try {
             await this.db.prepare(`
                 INSERT INTO polls (
-                    id, title, guild_id, channel_id, creator_id, 
+                    id, title, guild_id, channel_id, creator_id, creator_username,
                     phase, tally_method, nomination_deadline, voting_deadline, 
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).bind(
                 pollId,
                 pollData.title,
                 pollData.guildId,
                 pollData.channelId,
                 pollData.creatorId,
+                pollData.creatorUsername,
                 'nomination',
                 pollData.tallyMethod || 'ranked-choice',
                 pollData.nominationEnd || pollData.nominationDeadline,

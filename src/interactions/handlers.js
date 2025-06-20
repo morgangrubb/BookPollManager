@@ -18,6 +18,7 @@ export async function handleCreatePoll(interaction, options, pollManager) {
     guildId: interaction.guild_id,
     channelId: interaction.channel_id,
     creatorId: interaction.member?.user?.id || interaction.user?.id,
+    creatorUsername: interaction.member?.user?.username || interaction.user?.username,
     nominationDeadline: nominationEnd,
     votingDeadline: votingEnd,
     tallyMethod,
