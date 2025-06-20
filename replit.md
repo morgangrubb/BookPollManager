@@ -94,6 +94,13 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 20, 2025: Enhanced poll status, vote announcements, and nomination requirements
+  - Poll status now shows vote count during voting phase (e.g., "5 votes cast")
+  - Vote submissions trigger channel announcements notifying that user has voted
+  - Voting phase announcements now include clickable book links for easy access
+  - Book links are now required when nominating (not optional) to ensure all books have references
+  - Nomination announcements include clickable book links for immediate access
+  - Enhanced user engagement with real-time voting progress and notifications
 - June 20, 2025: Enhanced ranked choice voting with complete ranking requirements
   - Users must now rank ALL available options, not just their top choice
   - Works correctly with 1, 2, or many options (creates appropriate number of dropdowns)

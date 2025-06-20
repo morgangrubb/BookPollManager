@@ -219,6 +219,14 @@ async function handleNominate(interaction, options, pollManager) {
   const link = getOptionValue(options, 'link');
   let pollId = getOptionValue(options, 'poll_id');
 
+  // Validate required fields
+  if (!title) {
+    return createResponse('Book title is required.');
+  }
+  if (!link) {
+    return createResponse('Book link is required.');
+  }
+
   if (!title) {
     return createResponse('Book title is required for nomination.');
   }
@@ -247,7 +255,11 @@ async function handleNominate(interaction, options, pollManager) {
     const channelId = poll.channelId || interaction.channel_id;
     
     if (channelId) {
-      const announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
+      let announcementContent = `📚 **New Book Nomination!**\n\n**${title}**${author ? ` by ${author}` : ''}`;
+      if (link) {
+        announcementContent += ` [🔗 Link](${link})`;
+      }
+      announcementContent += `\n\nNominated by <@${nomination.userId}> for **${poll.title}**`;
       
       console.log('Sending nomination announcement to channel:', channelId);
       await sendDiscordMessage(channelId, announcementContent, pollManager.env);

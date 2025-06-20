@@ -722,6 +722,21 @@ async function handleChrisStyleVoting(interaction, env, pollManager) {
         await pollManager.submitVote(pollId, userId, rankings);
         await pollManager.deleteVotingSession(userKey);
         
+        // Get poll for announcement
+        const poll = await pollManager.getPoll(pollId);
+        
+        // Send announcement to channel
+        try {
+            if (poll?.channelId) {
+                const userName = interaction.member?.user?.username || interaction.user?.username || 'Someone';
+                const announcementContent = `🗳️ **Vote Submitted!**\n\n<@${userId}> has voted in **${poll.title}**`;
+                
+                await sendDiscordMessage(poll.channelId, announcementContent, pollManager.env);
+            }
+        } catch (error) {
+            console.error('Failed to announce vote:', error);
+        }
+        
         return new Response(JSON.stringify({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -893,6 +908,18 @@ async function handleRankedChoiceSubmission(interaction, env, pollManager) {
         const rankingsDisplay = rankings.map((book, idx) => 
             `${idx + 1}. ${book.title} by ${book.author || 'Unknown Author'}`
         ).join('\n');
+
+        // Send announcement to channel
+        try {
+            if (poll.channelId) {
+                const userName = interaction.member?.user?.username || interaction.user?.username || 'Someone';
+                const announcementContent = `🗳️ **Vote Submitted!**\n\n<@${userId}> has voted in **${poll.title}**`;
+                
+                await sendDiscordMessage(poll.channelId, announcementContent, pollManager.env);
+            }
+        } catch (error) {
+            console.error('Failed to announce vote:', error);
+        }
 
         return new Response(JSON.stringify({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
