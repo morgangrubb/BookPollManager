@@ -13,15 +13,11 @@ export async function handleCreatePoll(interaction, options, pollManager) {
     return createResponse('Title, nomination deadline, and voting deadline are required.');
   }
 
-  const creatorId = interaction.member?.user?.id || interaction.user?.id;
-  const creatorUsername = interaction.member?.user?.username || interaction.user?.username || 'Unknown User';
-
   const pollData = {
     title,
     guildId: interaction.guild_id,
     channelId: interaction.channel_id,
-    creatorId,
-    creatorUsername,
+    creatorId: interaction.member?.user?.id || interaction.user?.id,
     nominationDeadline: nominationEnd,
     votingDeadline: votingEnd,
     tallyMethod,
@@ -82,7 +78,8 @@ export async function handlePollStatus(interaction, options, pollManager) {
     }
 
     // Debug log to check poll data
-    console.log('Poll data:', JSON.stringify(poll, null, 2));
+    console.log('Poll creator ID:', poll.creatorId);
+    console.log('Poll object keys:', Object.keys(poll));
 
     const embed = {
       title: `📚 ${poll.title}`,
