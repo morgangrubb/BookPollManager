@@ -94,6 +94,13 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 20, 2025: Enhanced ranked choice voting with complete ranking requirements
+  - Users must now rank ALL available options, not just their top choice
+  - Works correctly with 1, 2, or many options (creates appropriate number of dropdowns)
+  - Added duplicate selection prevention and comprehensive validation
+  - Progress tracking shows completion status (e.g., "3/5 books ranked")
+  - Clear instructions adapt based on number of options (1 option = auto-select, 2 options = rank both, etc.)
+  - Improved user feedback with real-time progress updates
 - June 20, 2025: Updated ranked choice voting to use dropdown selects instead of text input
   - Ranked choice voting now uses the same select dropdown interface as chris-style voting
   - Users can rank up to 5 books using separate dropdown menus for 1st, 2nd, 3rd, 4th, and 5th choices
