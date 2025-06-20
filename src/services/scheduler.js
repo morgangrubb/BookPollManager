@@ -113,7 +113,7 @@ export async function announceVotingPhase(poll, env) {
     }
 }
 
-async function announcePollCompletion(poll, env) {
+export async function announcePollCompletion(poll, env) {
     try {
         if (!poll.results || !poll.results.winner) {
             console.log('Poll completed but no results available');

@@ -486,21 +486,38 @@ async function handleEndVoting(interaction, options, pollManager) {
 
   try {
     await pollManager.updatePollPhase(pollId, 'completed');
-    const results = pollManager.calculateResults(poll);
+    
+    // Get updated poll data with votes
+    const updatedPoll = await pollManager.getPoll(pollId);
+    const results = pollManager.calculateResults(updatedPoll);
+    
+    if (!results || !results.winner) {
+      return createResponse('❌ Unable to calculate results. No votes may have been cast.');
+    }
     
     const embed = {
       title: `🏆 ${poll.title} - Results`,
-      description: `**Winner:** ${results.winner.title} by ${results.winner.author}`,
+      description: `**Winner:** ${results.winner.title}${results.winner.author ? ` by ${results.winner.author}` : ''}`,
       color: 0x00ff00,
       fields: [
         {
           name: '📊 Final Results',
-          value: results.formattedResults,
+          value: results.formattedResults || 'Results calculated but formatting unavailable',
           inline: false
         }
       ],
-      footer: { text: `Poll ID: ${pollId}` }
+      footer: { text: `Poll ID: ${poll.id}` }
     };
+
+    // Send completion announcement to the channel
+    if (poll.channelId) {
+      try {
+        const { announcePollCompletion } = await import('./services/scheduler.js');
+        await announcePollCompletion(updatedPoll, pollManager.env);
+      } catch (error) {
+        console.error('Failed to announce poll completion:', error);
+      }
+    }
 
     return new Response(JSON.stringify({
       type: 4,
@@ -510,7 +527,8 @@ async function handleEndVoting(interaction, options, pollManager) {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    return createResponse(`❌ ${error.message}`);
+    console.error('Error ending voting:', error);
+    return createResponse(`❌ Failed to end voting: ${error.message}`);
   }
 }
 
