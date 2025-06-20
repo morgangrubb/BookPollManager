@@ -718,11 +718,28 @@ export default {
 
           // Handle message components (type 3) - buttons, select menus
           if (interaction.type === 3) {
-            if (interaction.data.component_type === 2) {
+            const customId = interaction.data.custom_id;
+            
+            // Button interactions (submit buttons, vote buttons)
+            if (customId.startsWith('submit_') || customId.startsWith('vote_')) {
               return await handleButtonInteraction(interaction, env);
-            } else if (interaction.data.component_type === 3) {
+            }
+            
+            // Select menu interactions (chris-style, ranked choice)
+            if (customId.startsWith('chris_vote_') || customId.startsWith('ranked_choice_')) {
               return await handleSelectMenuInteraction(interaction, env);
             }
+            
+            // Fallback for unknown components
+            return new Response(JSON.stringify({
+              type: 4,
+              data: {
+                content: `Unknown component interaction: ${customId}`,
+                flags: 64
+              }
+            }), {
+              headers: { 'Content-Type': 'application/json' }
+            });
           }
 
           // Handle modal submissions (type 5)
