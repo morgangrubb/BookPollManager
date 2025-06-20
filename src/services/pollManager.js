@@ -29,7 +29,7 @@ export class PollManager {
                 pollData.guildId,
                 pollData.channelId,
                 pollData.creatorId,
-                pollData.creatorUsername,
+                pollData.creatorUsername || null,
                 'nomination',
                 pollData.tallyMethod || 'ranked-choice',
                 pollData.nominationEnd || pollData.nominationDeadline,

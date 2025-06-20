@@ -18,6 +18,7 @@ export class DatabaseManager {
           guild_id TEXT NOT NULL,
           channel_id TEXT NOT NULL,
           creator_id TEXT NOT NULL,
+          creator_username TEXT,
           phase TEXT NOT NULL DEFAULT 'nomination',
           tally_method TEXT NOT NULL DEFAULT 'ranked-choice',
           nomination_deadline TEXT NOT NULL,
@@ -27,6 +28,18 @@ export class DatabaseManager {
           results_data TEXT
         )
       `).run();
+
+      // Add creator_username column if it doesn't exist (for existing databases)
+      try {
+        await this.db.prepare(`
+          ALTER TABLE polls ADD COLUMN creator_username TEXT
+        `).run();
+      } catch (error) {
+        // Column already exists or other non-critical error, continue
+        if (!error.message.includes('duplicate column name')) {
+          console.log('Note: creator_username column may already exist');
+        }
+      }
 
       // Create nominations table
       await this.db.prepare(`

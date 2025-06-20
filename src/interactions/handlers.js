@@ -13,12 +13,15 @@ export async function handleCreatePoll(interaction, options, pollManager) {
     return createResponse('Title, nomination deadline, and voting deadline are required.');
   }
 
+  const creatorId = interaction.member?.user?.id || interaction.user?.id;
+  const creatorUsername = interaction.member?.user?.username || interaction.user?.username || 'Unknown User';
+
   const pollData = {
     title,
     guildId: interaction.guild_id,
     channelId: interaction.channel_id,
-    creatorId: interaction.member?.user?.id || interaction.user?.id,
-    creatorUsername: interaction.member?.user?.username || interaction.user?.username,
+    creatorId,
+    creatorUsername,
     nominationDeadline: nominationEnd,
     votingDeadline: votingEnd,
     tallyMethod,
