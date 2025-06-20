@@ -61,6 +61,8 @@ async function handlePollCommand(interaction, env) {
         return await handleEndNominations(interaction, options, pollManager);
       case 'end-voting':
         return await handleEndVoting(interaction, options, pollManager);
+      case 'delete':
+        return await handleDeletePoll(interaction, options, pollManager);
       default:
         return createResponse(`Unknown poll subcommand: ${subcommand}`);
     }

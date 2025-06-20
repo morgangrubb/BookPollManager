@@ -436,4 +436,31 @@ export class PollManager {
             console.error('Error deleting voting session:', error);
         }
     }
+
+    async deletePoll(pollId) {
+        try {
+            // Start transaction by deleting related data first
+            await this.db.prepare(`
+                DELETE FROM votes WHERE poll_id = ?
+            `).bind(pollId).run();
+
+            await this.db.prepare(`
+                DELETE FROM nominations WHERE poll_id = ?
+            `).bind(pollId).run();
+
+            await this.db.prepare(`
+                DELETE FROM voting_sessions WHERE poll_id = ?
+            `).bind(pollId).run();
+
+            // Finally delete the poll itself
+            const result = await this.db.prepare(`
+                DELETE FROM polls WHERE id = ?
+            `).bind(pollId).run();
+
+            return result.changes > 0;
+        } catch (error) {
+            console.error('Error deleting poll:', error);
+            throw error;
+        }
+    }
 }

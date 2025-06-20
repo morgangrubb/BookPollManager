@@ -94,6 +94,13 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 20, 2025: Added poll deletion functionality for creators and server admins
+  - New `/poll delete` subcommand with poll ID and confirmation requirements
+  - Permission checks: only poll creator or server administrators can delete polls
+  - Requires typing "DELETE" exactly to confirm deletion (prevents accidental deletions)
+  - Cascading deletion removes all related data (nominations, votes, voting sessions)
+  - Automatic channel announcement when poll is deleted with user attribution
+  - Comprehensive error handling for missing polls and permission failures
 - June 19, 2025: Added poll creator information to status responses
   - Poll status now displays creator mention in the description line
   - Shows "Created by @username" when creator information is available
