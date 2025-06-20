@@ -172,6 +172,25 @@ export const pollCommand = {
           },
         ],
       },
+      {
+        name: "delete",
+        description: "Delete a poll (creator or admin only)",
+        type: 1,
+        options: [
+          {
+            name: "poll_id",
+            description: "Poll ID to delete",
+            type: 3,
+            required: true,
+          },
+          {
+            name: "confirm",
+            description: 'Type "DELETE" to confirm deletion',
+            type: 3,
+            required: true,
+          },
+        ],
+      },
     ],
   },
 
