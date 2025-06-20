@@ -94,6 +94,15 @@ Serverless deployment on Cloudflare Workers:
 
 ## Recent Changes
 
+- June 20, 2025: Successfully completed poll deletion functionality implementation
+  - Added `/poll delete` subcommand with poll ID and confirmation requirements
+  - Permission checks: only poll creator or server administrators can delete polls
+  - Requires typing "DELETE" exactly to confirm deletion (prevents accidental deletions)
+  - Cascading deletion removes all related data (nominations, votes, voting sessions)
+  - Automatic channel announcement when poll is deleted with user attribution
+  - Comprehensive error handling for missing polls and permission failures
+  - Full integration with Discord command registration and main routing system
+  - Testing confirmed: polls successfully deleted with proper permission validation
 - June 20, 2025: Added poll deletion functionality for creators and server admins
   - New `/poll delete` subcommand with poll ID and confirmation requirements
   - Permission checks: only poll creator or server administrators can delete polls

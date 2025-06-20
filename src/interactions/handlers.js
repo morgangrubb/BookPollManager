@@ -745,7 +745,7 @@ async function handleRankedChoiceSubmission(interaction, env, pollManager) {
     });
 }
 
-function generateChrisStyleVotingInterface(poll, userId, existingSelections = []) {
+export function generateChrisStyleVotingInterface(poll, userId, existingSelections = []) {
     const components = [];
     const nominations = poll.nominations;
     const maxSelections = Math.min(3, nominations.length);
@@ -789,7 +789,7 @@ function generateChrisStyleVotingInterface(poll, userId, existingSelections = []
     });
 }
 
-function generateRankedChoiceVotingInterface(poll) {
+export function generateRankedChoiceVotingInterface(poll) {
     const nominations = poll.nominations;
     const nominationsList = nominations.map((nom, idx) => 
         `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`

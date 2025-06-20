@@ -189,9 +189,12 @@ async function handlePollStatus(interaction, options, pollManager) {
   };
 
   if (poll.nominations.length > 0) {
-    const nominationsList = poll.nominations.map((nom, idx) => 
-      `${idx + 1}. **${nom.title}** ${nom.author ? `by ${nom.author}` : ''}`
-    ).join('\n');
+    const nominationsList = poll.nominations.map((nom, idx) => {
+      let bookInfo = `${idx + 1}. **${nom.title}**`;
+      if (nom.author) bookInfo += ` by ${nom.author}`;
+      if (nom.link) bookInfo += ` [🔗 Link](${nom.link})`;
+      return bookInfo;
+    }).join('\n');
     
     embed.fields.push({
       name: '📖 Nominated Books',
@@ -266,9 +269,16 @@ async function handleListPolls(interaction, pollManager) {
     return createResponse('📚 No active polls found in this server.');
   }
 
-  const pollList = activePolls.map(poll => 
-    `\`${poll.id}\` - **${poll.title}** (${poll.phase}) - <t:${Math.floor(new Date(poll.created_at).getTime() / 1000)}:R>`
-  ).join('\n');
+  // Handle pagination for more than 10 polls
+  const pollsPerPage = 10;
+  const totalPages = Math.ceil(activePolls.length / pollsPerPage);
+  const currentPolls = activePolls.slice(0, pollsPerPage);
+  
+  const pollList = currentPolls.map(poll => {
+    const createdTimestamp = poll.created_at ? Math.floor(new Date(poll.created_at).getTime() / 1000) : null;
+    const timeDisplay = createdTimestamp && !isNaN(createdTimestamp) ? `<t:${createdTimestamp}:R>` : 'Unknown date';
+    return `\`${poll.id}\` - **${poll.title}** (${poll.phase}) - ${timeDisplay}`;
+  }).join('\n');
 
   return new Response(JSON.stringify({
     type: 4,
@@ -349,11 +359,14 @@ async function handleVote(interaction, options, pollManager) {
     return createResponse('This poll is not in the voting phase.');
   }
 
+  // Import the voting interface generators from handlers
+  const { generateChrisStyleVotingInterface, generateRankedChoiceVotingInterface } = await import('./interactions/handlers.js');
+  
   // Generate voting interface based on tally method
   if (poll.tallyMethod === 'chris-style') {
-    return await handleButtonInteraction(interaction, pollManager.env);
+    return generateChrisStyleVotingInterface(poll, interaction.member?.user?.id || interaction.user?.id);
   } else {
-    return await handleSelectMenuInteraction(interaction, pollManager.env);
+    return generateRankedChoiceVotingInterface(poll);
   }
 }
 

@@ -68,7 +68,7 @@ export async function checkPollPhases(env) {
     }
 }
 
-async function announceVotingPhase(poll, env) {
+export async function announceVotingPhase(poll, env) {
     try {
         // Send announcement to Discord channel
         const embed = {
