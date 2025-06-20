@@ -104,6 +104,22 @@ export async function handlePollStatus(interaction, options, pollManager) {
       timestamp: new Date().toISOString()
     };
 
+    // Add vote count for voting phase
+    if (poll.phase === 'voting') {
+      try {
+        const voteCount = await pollManager.db.prepare(`
+          SELECT COUNT(DISTINCT user_id) as count FROM votes WHERE poll_id = ?
+        `).bind(poll.id).first();
+        
+        embed.fields.push({
+          name: '🗳️ Votes Cast',
+          value: voteCount?.count?.toString() || '0',
+          inline: true
+        });
+      } catch (error) {
+        console.error('Error getting vote count:', error);
+      }
+    }
 
 
     if (poll.nominations && poll.nominations.length > 0) {
@@ -760,6 +776,20 @@ async function handleRankedChoiceVoting(interaction, env, pollManager) {
     const selectedValue = interaction.data.values[0];
 
     try {
+        // Get poll first to ensure it exists
+        const poll = await pollManager.getPoll(pollId);
+        if (!poll || !poll.nominations) {
+            return new Response(JSON.stringify({
+                type: 4,
+                data: {
+                    content: '❌ Poll not found or has no nominations.',
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
         // Get or create voting session
         const userKey = `ranked_${pollId}_${userId}`;
         let session = await pollManager.getVotingSession(userKey);
@@ -776,7 +806,6 @@ async function handleRankedChoiceVoting(interaction, env, pollManager) {
         await pollManager.setVotingSession(userKey, pollId, userId, session.selections);
 
         // Show current selections
-        const poll = await pollManager.getPoll(pollId);
         const nominations = poll.nominations || [];
         
         const currentSelections = Object.entries(session.selections)

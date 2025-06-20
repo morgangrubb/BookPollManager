@@ -78,9 +78,9 @@ export const pollCommand = {
           },
           {
             name: "link",
-            description: "Link to book",
+            description: "Link to book (required)",
             type: 3, // STRING
-            required: false,
+            required: true,
           },
           {
             name: "poll_id",
