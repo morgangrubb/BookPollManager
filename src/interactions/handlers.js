@@ -745,12 +745,8 @@ async function handleRankedChoiceVoting(interaction, env, pollManager) {
         }
 
         // Update selection for this rank
-        if (selectedValue === 'none') {
-            delete session.selections[rank];
-        } else {
-            const bookIndex = parseInt(selectedValue.split('_')[1]);
-            session.selections[rank] = bookIndex;
-        }
+        const bookIndex = parseInt(selectedValue.split('_')[1]);
+        session.selections[rank] = bookIndex;
 
         // Save updated session
         await pollManager.setVotingSession(userKey, pollId, userId, session.selections);
@@ -766,14 +762,22 @@ async function handleRankedChoiceVoting(interaction, env, pollManager) {
                 return `${rank}. ${book?.title || 'Unknown'} by ${book?.author || 'Unknown Author'}`;
             });
 
+        const totalOptions = nominations.length;
+        const selectedCount = Object.keys(session.selections).length;
+        
         const selectionsDisplay = currentSelections.length > 0 
             ? `**Current Rankings:**\n${currentSelections.join('\n')}`
             : 'No rankings selected yet.';
 
+        const progressText = `Progress: ${selectedCount}/${totalOptions} books ranked`;
+        const statusText = selectedCount === totalOptions 
+            ? 'All books ranked! Click Submit to finalize your vote.'
+            : `Continue ranking the remaining ${totalOptions - selectedCount} book${totalOptions - selectedCount !== 1 ? 's' : ''}.`;
+
         return new Response(JSON.stringify({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-                content: `✅ Ranking updated!\n\n${selectionsDisplay}\n\nContinue selecting your rankings, then click Submit when ready.`,
+                content: `✅ Ranking updated!\n\n${selectionsDisplay}\n\n${progressText}\n${statusText}`,
                 flags: 64
             }
         }), {
@@ -801,19 +805,7 @@ async function handleRankedChoiceSubmission(interaction, env, pollManager) {
         const userKey = `ranked_${pollId}_${userId}`;
         const session = await pollManager.getVotingSession(userKey);
         
-        if (!session || Object.keys(session.selections).length === 0) {
-            return new Response(JSON.stringify({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: '❌ Please make at least one ranking selection before submitting.',
-                    flags: 64
-                }
-            }), {
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-
-        // Get poll data
+        // Get poll data to check requirements
         const poll = await pollManager.getPoll(pollId);
         if (!poll || poll.phase !== 'voting') {
             return new Response(JSON.stringify({
@@ -826,6 +818,37 @@ async function handleRankedChoiceSubmission(interaction, env, pollManager) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+
+        const totalOptions = poll.nominations?.length || 0;
+        const requiredSelections = totalOptions;
+
+        if (!session || Object.keys(session.selections).length < requiredSelections) {
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `❌ Please rank all ${totalOptions} options before submitting. You have selected ${Object.keys(session?.selections || {}).length}/${requiredSelections}.`,
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Check for duplicate selections
+        const selectedBooks = Object.values(session.selections);
+        if (new Set(selectedBooks).size !== selectedBooks.length) {
+            return new Response(JSON.stringify({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: '❌ Each book can only be selected once. Please check your rankings for duplicates.',
+                    flags: 64
+                }
+            }), {
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+
 
         // Convert selections to rankings format
         const nominations = poll.nominations || [];
@@ -950,13 +973,13 @@ export function generateRankedChoiceVotingInterface(poll) {
         description: nom.title.length > 50 ? nom.title.substring(0, 47) + '...' : nom.title
     }));
 
-    // Create multiple select components for ranking (up to 5 choices)
+    // Create select components for ranking ALL options
     const components = [];
-    const maxRankings = Math.min(nominations.length, 5);
+    const totalOptions = nominations.length;
 
-    for (let i = 0; i < maxRankings; i++) {
+    for (let i = 0; i < totalOptions; i++) {
         const rank = i + 1;
-        const isRequired = i === 0; // Only first choice is required
+        const rankSuffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
         
         components.push({
             type: 1, // ACTION_ROW
@@ -964,16 +987,9 @@ export function generateRankedChoiceVotingInterface(poll) {
                 {
                     type: 3, // SELECT_MENU
                     custom_id: `ranked_choice_${poll.id}_rank_${rank}`,
-                    placeholder: `${rank === 1 ? '1st' : rank === 2 ? '2nd' : rank === 3 ? '3rd' : rank + 'th'} Choice${isRequired ? ' (Required)' : ' (Optional)'}`,
-                    options: [
-                        {
-                            label: '-- No Selection --',
-                            value: 'none',
-                            description: 'Skip this ranking'
-                        },
-                        ...bookOptions
-                    ],
-                    min_values: isRequired ? 1 : 0,
+                    placeholder: `${rank}${rankSuffix} Choice (Required)`,
+                    options: bookOptions,
+                    min_values: 1,
                     max_values: 1
                 }
             ]
@@ -994,14 +1010,20 @@ export function generateRankedChoiceVotingInterface(poll) {
         ]
     });
 
+    const instructionText = totalOptions === 1 
+        ? 'Only one option available - this will be automatically selected as your choice.'
+        : totalOptions === 2
+        ? 'Rank both books in order of preference (1st choice and 2nd choice).'
+        : `Rank all ${totalOptions} books in order of preference (1st choice through ${totalOptions}${totalOptions === 3 ? 'rd' : 'th'} choice).`;
+
     return new Response(JSON.stringify({
         type: 4,
         data: {
             embeds: [{
                 title: `🗳️ Ranked Choice Voting: ${poll.title}`,
-                description: `Rank the books in order of preference. You must select at least your 1st choice.\n\n**Available Books:**\n${nominations.map((nom, idx) => `${idx + 1}. **${nom.title}** by ${nom.author || 'Unknown Author'}`).join('\n')}`,
+                description: `${instructionText}\n\n**Available Books:**\n${nominations.map((nom, idx) => `${idx + 1}. **${nom.title}** by ${nom.author || 'Unknown Author'}`).join('\n')}`,
                 color: 0xFF9900,
-                footer: { text: 'Select your rankings below, then click Submit' }
+                footer: { text: totalOptions === 1 ? 'Click Submit to confirm your vote' : 'Rank all books, then click Submit' }
             }],
             components,
             flags: 64
