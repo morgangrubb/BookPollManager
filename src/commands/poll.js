@@ -141,6 +141,44 @@ export const pollCommand = {
         ],
       },
       {
+        name: "edit-nomination",
+        description: "Edit a nomination (title, author, link)",
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: "title",
+            description: "New book title",
+            type: 3, // STRING
+            required: false,
+          },
+          {
+            name: "author",
+            description: "New book author",
+            type: 3, // STRING
+            required: false,
+          },
+          {
+            name: "link",
+            description: "New link to book",
+            type: 3, // STRING
+            required: false,
+          },
+          {
+            name: "poll_id",
+            description:
+              "Poll ID (optional - will auto-detect if not provided)",
+            type: 3, // STRING
+            required: false,
+          },
+          {
+            name: "nomination_id",
+            description: "Nomination ID (optional, required if you have multiple nominations)",
+            type: 3, // STRING
+            required: false,
+          },
+        ],
+      },
+      {
         name: "end-nominations",
         description: "End nomination phase and start voting (creator only)",
         type: 1, // SUB_COMMAND

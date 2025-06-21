@@ -5,6 +5,7 @@ import { checkPollPhases } from "./services/scheduler.js";
 import {
   handleCreatePoll,
   handleDeletePoll,
+  handleEditNomination,
   handleEndNominations,
   handleEndVoting,
   handleListPolls,
@@ -84,6 +85,8 @@ async function handlePollCommand(interaction, env) {
         return await handleWithdrawNomination(opts);
       case "vote":
         return await handleVote(opts);
+      case "edit-nomination":
+        return await handleEditNomination(opts);
       case "remove-nomination":
         return await handleRemoveNomination(opts);
       case "end-nominations":

@@ -332,6 +332,78 @@ export class PollManager {
     }
   }
 
+  /**
+   * Edit a nomination's fields (title, author, link).
+   * - Only admins or poll creators can edit any nomination.
+   * - Regular users can only edit their own nominations.
+   * @param {string} pollId
+   * @param {object} fields - { nominationId, userId, title, author, link, isAdmin, isPollCreator }
+   */
+  async editNomination(pollId, { nominationId, userId, title, author, link, isAdmin = false, isPollCreator = false }) {
+    try {
+      // Get poll and nominations
+      const poll = await this.getPoll(pollId);
+      if (!poll) throw new Error("Poll not found");
+      if (poll.phase !== "nomination") throw new Error("Can only edit nominations during nomination phase");
+
+      // Find nomination
+      let nomination;
+      if (nominationId) {
+        nomination = poll.nominations.find(n => n.id == nominationId);
+        if (!nomination) throw new Error("Nomination not found");
+      } else {
+        // Find nominations by user
+        const userNoms = poll.nominations.filter(n => n.userId === userId);
+        if (userNoms.length === 0) throw new Error("You have no nominations to edit.");
+        if (userNoms.length > 1 && !(isAdmin || isPollCreator)) {
+          throw new Error("You have multiple nominations. Please specify nomination_id.");
+        }
+        nomination = userNoms.length === 1 ? userNoms[0] : null;
+        if (!nomination) throw new Error("Nomination not found.");
+      }
+
+      // Permission check
+      if (!(isAdmin || isPollCreator) && nomination.userId !== userId) {
+        throw new Error("You can only edit your own nominations.");
+      }
+
+      // Build update query
+      const updates = [];
+      const bindings = [];
+      if (title !== undefined) {
+        updates.push("title = ?");
+        bindings.push(title);
+      }
+      if (author !== undefined) {
+        updates.push("author = ?");
+        bindings.push(author);
+      }
+      if (link !== undefined) {
+        updates.push("link = ?");
+        bindings.push(link);
+      }
+      if (updates.length === 0) throw new Error("No fields to update.");
+
+      bindings.push(pollId, nomination.id);
+
+      await this.db
+        .prepare(
+          `
+            UPDATE nominations
+            SET ${updates.join(", ")}
+            WHERE poll_id = ? AND id = ?
+          `
+        )
+        .bind(...bindings)
+        .run();
+
+      return await this.getPoll(pollId);
+    } catch (error) {
+      console.error("Error editing nomination:", error);
+      throw error;
+    }
+  }
+
   async submitVote(pollId, userId, rankings) {
     try {
       // Check if user already voted with direct query

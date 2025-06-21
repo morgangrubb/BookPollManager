@@ -325,6 +325,87 @@ export async function handleListPolls({ interaction, pollManager }) {
   );
 }
 
+// Edit nomination handler for /poll edit-nomination
+export async function handleEditNomination({
+  interaction,
+  options,
+  pollManager,
+  poll,
+  userId,
+  isAdmin,
+  isPollCreator,
+}) {
+  // Get editable fields
+  const newTitle = getOptionValue(options, "title");
+  const newAuthor = getOptionValue(options, "author");
+  const newLink = getOptionValue(options, "link");
+  const nominationIdOpt = getOptionValue(options, "nomination_id");
+
+  // Find nominations to edit
+  let nominationsToEdit = [];
+
+  if (nominationIdOpt) {
+    // Find by nomination_id
+    const nomination = poll.nominations[nominationIdOpt - 1];
+    if (!nomination) {
+      return createResponse("❌ Nomination not found.");
+    }
+    nominationsToEdit = [nomination];
+  } else {
+    // Find nominations by user
+    const userNoms = poll.nominations.filter((n) => n.userId === userId);
+    if (userNoms.length === 0) {
+      return createResponse("❌ You have no nominations to edit.");
+    }
+    if (userNoms.length > 1 && !(isAdmin || isPollCreator)) {
+      return createResponse(
+        "❌ You have multiple nominations. Please specify nomination_id.",
+      );
+    }
+    nominationsToEdit = userNoms.length === 1 ? [userNoms[0]] : userNoms;
+  }
+
+  // Permission check
+  for (const nomination of nominationsToEdit) {
+    if (!(isAdmin || isPollCreator) && nomination.userId !== userId) {
+      return createResponse("❌ You can only edit your own nominations.");
+    }
+  }
+
+  // Only one nomination should be edited at a time
+  if (nominationsToEdit.length > 1) {
+    return createResponse(
+      "❌ Multiple nominations found. Please specify nomination_id.",
+    );
+  }
+
+  const nomination = nominationsToEdit[0];
+
+  // Validate at least one field to update
+  if (!newTitle && !newAuthor && !newLink) {
+    return createResponse(
+      "Please specify at least one field to update (title, author, or link).",
+    );
+  }
+
+  // Update nomination in DB
+  try {
+    await pollManager.editNomination(poll.id, {
+      nominationId: nomination.id,
+      userId,
+      title: newTitle,
+      author: newAuthor,
+      link: newLink,
+      isAdmin,
+      isPollCreator,
+    });
+
+    return createResponse("✅ Nomination updated successfully.");
+  } catch (error) {
+    return createResponse(`❌ Failed to update nomination: ${error.message}`);
+  }
+}
+
 export async function handleWithdrawNomination({
   interaction,
   pollManager,
