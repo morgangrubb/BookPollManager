@@ -4,6 +4,12 @@ import { getOptionValue } from "../utils/getOptionValue.js";
 import { generateChrisStyleVotingInterface } from "../utils/chrisStyle.js";
 import { generateRankedChoiceVotingInterface } from "../utils/rankedChoice.js";
 import { sendDiscordMessage } from "../utils/sendDiscordMessage.js";
+import {
+  formatNominations,
+  formatNomination,
+  formatPollFooterLine,
+  formatResults,
+} from "../utils/format.js";
 
 export async function handleCreatePoll({ interaction, options, pollManager }) {
   const title = getOptionValue(options, "title");
@@ -97,53 +103,82 @@ export async function handlePollStatus({ poll }) {
     return createResponse("❌ Poll not found.");
   }
 
-  const embed = {
-    title: `📚 ${poll.title}`,
-    color:
-      poll.phase === "completed"
-        ? 0x00ff00
-        : poll.phase === "voting"
-          ? 0xffaa00
-          : 0x0099ff,
-    fields: [
-      {
-        name: "📝 Phase",
-        value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1),
-        inline: true,
-      },
-      {
-        name: "📊 Tally Method",
-        value:
-          poll.tallyMethod === "chris-style" ? "Chris Style" : "Ranked Choice",
-        inline: true,
-      },
-    ],
-    footer: { text: formatPollFooterLine(poll) },
-    timestamp: new Date().toISOString(),
-  };
+  let embed;
 
-  if (poll.phase === "completed" || poll.phase === "voting") {
-    embed.fields.push({
-      name: "🗳️ Votes Cast",
-      value: poll.results.totalVotes.toString(),
-      inline: true,
-    });
+  if (poll.phase === "completed") {
+    embed = formatResults(poll);
+  } else {
+    embed = {
+      title: `📚 ${poll.title}`,
+      color:
+        poll.phase === "completed"
+          ? 0x00ff00
+          : poll.phase === "voting"
+            ? 0xffaa00
+            : 0x0099ff,
+      fields: [
+        {
+          name: "📝 Phase",
+          value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1),
+          inline: true,
+        },
+        {
+          name: "📊 Tally Method",
+          value:
+            poll.tallyMethod === "chris-style"
+              ? "Chris Style"
+              : "Ranked Choice",
+          inline: true,
+        },
+      ],
+      footer: { text: formatPollFooterLine(poll) },
+      timestamp: new Date().toISOString(),
+    };
 
-    if (poll.phase === "completed" && poll.results.winner) {
+    if (poll.phase === "completed" || poll.phase === "voting") {
       embed.fields.push({
-        name: "🏆 Winner",
-        value: formatNomination(poll.results.winner),
+        name: "🗳️ Votes Cast",
+        value: poll.results.totalVotes.toString(),
+        inline: true,
+      });
+
+      if (
+        poll.phase === "completed" &&
+        poll.tallyMethod === "chris-style" &&
+        poll.results &&
+        poll.results.tie === true &&
+        Array.isArray(poll.results.tiedNominations) &&
+        poll.results.tiedNominations.length > 1
+      ) {
+        embed.fields.push({
+          name: "⚠️ Tie Detected",
+          value:
+            "There is a tie for first place that must be resolved by Dottie. Use `/poll tie-break` to select a winner.",
+          inline: false,
+        });
+        embed.fields.push({
+          name: "Tied Options",
+          value: poll.results.tiedNominations
+            .map((nom) => formatNomination(nom))
+            .join("\n"),
+          inline: false,
+        });
+      } else if (poll.phase === "completed" && poll.results.winner) {
+        embed.fields.push({
+          name: "🏆 Winner",
+          value: formatNomination(poll.results.winner),
+          inline: false,
+        });
+      }
+    }
+
+    if (poll.nominations && poll.nominations.length > 0) {
+      embed.fields.push({
+        name: "📖 Nominations",
+        value: formatNominations(poll),
         inline: false,
       });
     }
-  }
-
-  if (poll.nominations && poll.nominations.length > 0) {
-    embed.fields.push({
-      name: "📖 Nominations",
-      value: formatNominations(poll),
-      inline: false,
-    });
   }
 
   return new Response(
@@ -156,47 +191,6 @@ export async function handlePollStatus({ poll }) {
       headers: { "Content-Type": "application/json" },
     },
   );
-}
-
-function formatNomination(nomination) {
-  if (!nomination) return "Invalid nomination";
-  return `[${nomination.title} ${nomination.author ? `by ${nomination.author}` : ""}](${nomination.link}) (${nomination.username})`;
-}
-
-function formatPollFooterLine(poll) {
-  // return `Poll ID: ${poll.id}, ${poll.creatorId ? `Created by <@${poll.creatorId}>` : null}`;
-  return `Poll ID: ${poll.id}`;
-}
-
-function formatNominations(poll) {
-  let nominationsList = "";
-
-  if (poll.nominations && poll.nominations.length > 0) {
-    // If poll is completed, show nominations sorted by final score
-    if (
-      poll.phase === "completed" &&
-      poll.results &&
-      Array.isArray(poll.results.standings)
-    ) {
-      // Each result in poll.results.standings should have at least: title, author, username, score
-      const sorted = [...poll.results.standings].sort(
-        (a, b) => (b.points ?? 0) - (a.points ?? 0),
-      );
-      nominationsList = sorted
-        .map(
-          (standing, idx) =>
-            `${idx + 1}. ${formatNomination(standing.nomination)} — **${standing.points ?? 0}** point${standing.points === 1 ? "" : "s"}`,
-        )
-        .join("\n");
-    } else {
-      // Show in nomination order
-      nominationsList = poll.nominations
-        .map((nom, idx) => `${idx + 1}. ${formatNomination(nom)}`)
-        .join("\n");
-    }
-  }
-
-  return nominationsList;
 }
 
 export async function handleNominate({
@@ -406,6 +400,120 @@ export async function handleEditNomination({
   }
 }
 
+// Tie-break handler for /poll tie-break
+export async function handleTieBreak({
+  interaction,
+  pollManager,
+  poll,
+  isAdmin,
+  isPollCreator,
+}) {
+  if (
+    !poll ||
+    poll.phase !== "completed" ||
+    poll.tallyMethod !== "chris-style"
+  ) {
+    return createResponse(
+      "❌ Tie-break is only available for completed Chris-style polls.",
+    );
+  }
+  if (
+    !poll.results ||
+    poll.results.tie !== true ||
+    !Array.isArray(poll.results.tiedNominations) ||
+    poll.results.tiedNominations.length < 2
+  ) {
+    return createResponse("❌ There is no tie to break for this poll.");
+  }
+  if (!(isAdmin || isPollCreator)) {
+    return createResponse(
+      "❌ Only the poll creator or a server admin can break a tie.",
+    );
+  }
+
+  const winnerNominationId = interaction.data?.values?.[0];
+  if (!winnerNominationId) {
+    // Show options for tie-break
+    const tiedOptions = poll.results.tiedNominations.map((nom) => ({
+      label: nom.title + (nom.author ? ` by ${nom.author}` : ""),
+      value: String(nom.id),
+      description: nom.link || undefined,
+    }));
+
+    return new Response(
+      JSON.stringify({
+        type: 4,
+        data: {
+          content: "Select the winner from the tied nominations below.",
+          components: [
+            {
+              type: 1,
+              components: [
+                {
+                  type: 3,
+                  custom_id: `tie_break_${poll.id}`,
+                  options: tiedOptions,
+                  placeholder: "Select winner",
+                  min_values: 1,
+                  max_values: 1,
+                },
+              ],
+            },
+          ],
+          flags: 64,
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  // Find the selected winner
+  const winnerNom = poll.results.tiedNominations.find(
+    (nom) => String(nom.id) === String(winnerNominationId),
+  );
+  if (!winnerNom) {
+    return createResponse(
+      "❌ Selected winner is not among the tied nominations.",
+    );
+  }
+
+  // Update poll results in DB
+  try {
+    // Overwrite winner in results and remove tie
+    const newResults = {
+      ...poll.results,
+      winner: winnerNom,
+      tie: false,
+      tiedNominations: [],
+    };
+    await pollManager.updatePoll(poll.id, {
+      results: newResults,
+    });
+    const updatedPoll = await pollManager.getPoll(poll.id);
+
+    // Announce to channel
+    return new Response(
+      JSON.stringify({
+        type: 4,
+        data: {
+          embeds: [
+            formatResults(updatedPoll, { heading: "Tie broken by Dottie" }),
+          ],
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  } catch (error) {
+    return createResponse(`❌ Failed to resolve tie: ${error.message}`);
+  }
+}
+
 export async function handleWithdrawNomination({
   interaction,
   pollManager,
@@ -463,9 +571,6 @@ export async function handleVote({ interaction, poll, userId }) {
   if (poll.phase !== "voting") {
     return createResponse("This poll is not in the voting phase.");
   }
-
-  console.log(userId);
-  console.log(JSON.stringify(poll.votes, null, 2));
 
   // Check if user already voted
   const existingVote = (poll.votes || []).some(
@@ -567,7 +672,9 @@ export async function handleEndNominations({
     if (poll.channelId) {
       try {
         const updatedPoll = await pollManager.getPoll(poll.id);
-        const { announceVotingPhase } = await import("./services/scheduler.js");
+        const { announceVotingPhase } = await import(
+          "../services/scheduler.js"
+        );
         await announceVotingPhase(updatedPoll, pollManager.env);
       } catch (error) {
         console.error("Failed to announce voting phase:", error);
@@ -588,6 +695,10 @@ export async function handleEndVoting({
   isAdmin,
   isPollCreator,
 }) {
+  if (!poll) {
+    return createResponse("Poll not found.");
+  }
+
   if (!isAdmin && !isPollCreator) {
     return createResponse("Only the poll creator can end the voting phase.");
   }
@@ -603,25 +714,13 @@ export async function handleEndVoting({
     const updatedPoll = await pollManager.getPoll(poll.id);
     const results = pollManager.calculateResults(updatedPoll);
 
-    if (!results || !results.winner) {
+    if (!results || (!results.winner && !results.tie)) {
       return createResponse(
         "❌ Unable to calculate results. No votes may have been cast.",
       );
     }
 
-    const embed = {
-      title: `🏆 ${poll.title} - Results`,
-      description: `**Winner:** ${results.winner.title}${results.winner.author ? ` by ${results.winner.author}` : ""}`,
-      color: 0x00ff00,
-      fields: [
-        {
-          name: "📊 Final Results",
-          value: formatNominations(updatedPoll),
-          inline: false,
-        },
-      ],
-      footer: { text: `Poll ID: ${poll.id}` },
-    };
+    const embed = formatResults(updatedPoll);
 
     // Send completion announcement to the channel
     if (poll.channelId) {

@@ -470,3 +470,27 @@ export function generateRankedChoiceVotingInterface(poll) {
     },
   );
 }
+
+export function formatRankedChoiceResults(poll) {
+  // const results = calculateChrisStyleResults(poll);
+  // const embed = {
+  //   title: `🏆 ${poll.title} - Results`,
+  //   description: `**Winner:** ${results.winner.title}${results.winner.author ? ` by ${results.winner.author}` : ""}`,
+  //   fields: [
+  //     {
+  //       name: "First Place",
+  //       value: results.firstPlace.title,
+  //       inline: true,
+  //     },
+  //     {
+  //       name: "Second Place",
+  //       value: results.secondPlace.title,
+  //       inline: true,
+  //     },
+  //     {
+  //       name: "Third Place",
+  //       value: results.thirdPlace.title,
+  //       inline: true,
+  //     },
+  //   ],
+}

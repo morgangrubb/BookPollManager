@@ -248,6 +248,30 @@ export class PollManager {
       .run();
   }
 
+  /**
+   * Set the winner for a poll after a tie-break.
+   * Only updates the winner field in results_data.
+   * @param {string} pollId
+   * @param {object} winnerNomination
+   */
+  async setPollWinner(pollId, winnerNomination) {
+    try {
+      // Get poll and results_data
+      const poll = await this.getPoll(pollId);
+      if (!poll) throw new Error("Poll not found");
+      if (poll.phase !== "completed") throw new Error("Poll is not completed");
+
+      let results = poll.results || {};
+      results.winner = winnerNomination;
+
+      await this.updatePoll(pollId, { results });
+      return await this.getPoll(pollId);
+    } catch (error) {
+      console.error("Error setting poll winner:", error);
+      throw error;
+    }
+  }
+
   convertFieldToColumn(field) {
     const fieldMap = {
       phase: "phase",
@@ -339,24 +363,39 @@ export class PollManager {
    * @param {string} pollId
    * @param {object} fields - { nominationId, userId, title, author, link, isAdmin, isPollCreator }
    */
-  async editNomination(pollId, { nominationId, userId, title, author, link, isAdmin = false, isPollCreator = false }) {
+  async editNomination(
+    pollId,
+    {
+      nominationId,
+      userId,
+      title,
+      author,
+      link,
+      isAdmin = false,
+      isPollCreator = false,
+    },
+  ) {
     try {
       // Get poll and nominations
       const poll = await this.getPoll(pollId);
       if (!poll) throw new Error("Poll not found");
-      if (poll.phase !== "nomination") throw new Error("Can only edit nominations during nomination phase");
+      if (poll.phase !== "nomination")
+        throw new Error("Can only edit nominations during nomination phase");
 
       // Find nomination
       let nomination;
       if (nominationId) {
-        nomination = poll.nominations.find(n => n.id == nominationId);
+        nomination = poll.nominations.find((n) => n.id == nominationId);
         if (!nomination) throw new Error("Nomination not found");
       } else {
         // Find nominations by user
-        const userNoms = poll.nominations.filter(n => n.userId === userId);
-        if (userNoms.length === 0) throw new Error("You have no nominations to edit.");
+        const userNoms = poll.nominations.filter((n) => n.userId === userId);
+        if (userNoms.length === 0)
+          throw new Error("You have no nominations to edit.");
         if (userNoms.length > 1 && !(isAdmin || isPollCreator)) {
-          throw new Error("You have multiple nominations. Please specify nomination_id.");
+          throw new Error(
+            "You have multiple nominations. Please specify nomination_id.",
+          );
         }
         nomination = userNoms.length === 1 ? userNoms[0] : null;
         if (!nomination) throw new Error("Nomination not found.");
@@ -392,7 +431,7 @@ export class PollManager {
             UPDATE nominations
             SET ${updates.join(", ")}
             WHERE poll_id = ? AND id = ?
-          `
+          `,
         )
         .bind(...bindings)
         .run();
@@ -514,6 +553,27 @@ export class PollManager {
     } catch (error) {
       console.error("Error getting active polls:", error);
       return [];
+    }
+  }
+
+  async getMostRecentPoll(guildId) {
+    try {
+      const result = await this.db
+        .prepare(
+          `
+                SELECT id FROM polls WHERE guild_id = ?
+                ORDER BY created_at DESC LIMIT 1
+            `,
+        )
+        .bind(guildId)
+        .first();
+
+      if (!result) return null;
+
+      return await this.getPoll(result.id);
+    } catch (error) {
+      console.error("Error getting most recent poll:", error);
+      return null;
     }
   }
 

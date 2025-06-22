@@ -16,13 +16,15 @@ export const pollCommand = {
           },
           {
             name: "nomination_end",
-            description: "Nomination deadline (YYYY-MM-DD HH:MM)",
+            description:
+              "Nomination deadline (YYYY-MM-DD HH:MM) (hour and minute optional)",
             type: 3, // STRING
             required: true,
           },
           {
             name: "voting_end",
-            description: "Voting deadline (YYYY-MM-DD HH:MM)",
+            description:
+              "Voting deadline (YYYY-MM-DD HH:MM) (hour and minute optional)",
             type: 3, // STRING
             required: true,
           },
@@ -49,7 +51,7 @@ export const pollCommand = {
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -74,14 +76,14 @@ export const pollCommand = {
           },
           {
             name: "link",
-            description: "Link to book (required)",
+            description: "Link to book",
             type: 3, // STRING
             required: true,
           },
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -100,7 +102,7 @@ export const pollCommand = {
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -114,7 +116,7 @@ export const pollCommand = {
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -122,7 +124,7 @@ export const pollCommand = {
       },
       {
         name: "remove-nomination",
-        description: "Remove a nomination (creator only)",
+        description: "Remove a nomination",
         type: 1, // SUB_COMMAND
         options: [
           {
@@ -134,7 +136,7 @@ export const pollCommand = {
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -142,7 +144,7 @@ export const pollCommand = {
       },
       {
         name: "edit-nomination",
-        description: "Edit a nomination (title, author, link)",
+        description: "Edit a nomination",
         type: 1, // SUB_COMMAND
         options: [
           {
@@ -166,13 +168,28 @@ export const pollCommand = {
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
           {
             name: "nomination_id",
-            description: "Nomination ID (optional, required if you have multiple nominations)",
+            description:
+              "Nomination ID (optional, required if you have multiple nominations)",
+            type: 3, // STRING
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "tie-break",
+        description:
+          "Resolve a tie in a Chris-style poll by selecting a winner",
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: "poll_id",
+            description: "Poll ID",
             type: 3, // STRING
             required: false,
           },
@@ -180,13 +197,13 @@ export const pollCommand = {
       },
       {
         name: "end-nominations",
-        description: "End nomination phase and start voting (creator only)",
+        description: "End nomination phase and start voting",
         type: 1, // SUB_COMMAND
         options: [
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -194,13 +211,13 @@ export const pollCommand = {
       },
       {
         name: "end-voting",
-        description: "End voting phase and show results (creator only)",
+        description: "End voting phase and show results",
         type: 1, // SUB_COMMAND
         options: [
           {
             name: "poll_id",
             description:
-              "Poll ID (optional - will auto-detect if not provided)",
+              "Poll ID (optional, will use most recent poll if not provided)",
             type: 3, // STRING
             required: false,
           },
@@ -208,7 +225,7 @@ export const pollCommand = {
       },
       {
         name: "delete",
-        description: "Delete a poll (creator or admin only)",
+        description: "Delete a poll",
         type: 1,
         options: [
           {

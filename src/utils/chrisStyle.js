@@ -1,5 +1,6 @@
 import { InteractionResponseType } from "discord-interactions";
 import { sendDiscordMessage } from "./sendDiscordMessage.js";
+import { formatNomination, formatPollFields } from "./format.js";
 
 /**
  * Implements Chris-style voting where users pick exactly 3 books
@@ -35,17 +36,22 @@ export function calculateChrisStyleWinner(candidates, votes) {
     (a, b) => b.points - a.points,
   );
 
-  // Handle tie for first place: pick randomly among tied top scorers
+  // Handle tie for first place: announce tie, no winner, provide tied nominations
   let winner = null;
+  let tie = false;
+  let tiedNominations = [];
   if (sortedResults.length > 0) {
     const topPoints = sortedResults[0].points;
     const tied = sortedResults.filter((r) => r.points === topPoints);
     if (tied.length === 1) {
       winner = tied[0].nomination;
+      tie = false;
+      tiedNominations = [];
     } else {
-      // Pick randomly among tied nominations
-      const randomIndex = Math.floor(Math.random() * tied.length);
-      winner = tied[randomIndex].nomination;
+      // Tie detected, no winner, return tied nominations for Dottie to resolve
+      tie = true;
+      tiedNominations = tied.map((r) => r.nomination);
+      winner = null;
     }
   }
 
@@ -53,6 +59,8 @@ export function calculateChrisStyleWinner(candidates, votes) {
     winner,
     standings: sortedResults,
     totalVotes: votes.length,
+    tie, // boolean: true if tie, false otherwise
+    tiedNominations, // array of tied nominations if tie, otherwise []
   };
 }
 
@@ -249,4 +257,41 @@ export function generateChrisStyleVotingInterface(
       headers: { "Content-Type": "application/json" },
     },
   );
+}
+
+export function formatChrisStyleResults(poll, { heading } = {}) {
+  const results = poll.results;
+
+  let nominationsList = "";
+
+  // Each result in poll.results.standings should have at least: title, author, username, score
+  const sorted = [...poll.results.standings].sort(
+    (a, b) => (b.points ?? 0) - (a.points ?? 0),
+  );
+  nominationsList = sorted
+    .map(
+      (standing, idx) =>
+        `${idx + 1}. ${formatNomination(standing.nomination)} — **${standing.points ?? 0}** point${standing.points === 1 ? "" : "s"}`,
+    )
+    .join("\n");
+
+  const embed = {
+    title: `${results.tie ? "❓" : "🏆"} ${poll.title} - ${heading || "Results"}`,
+    description: results.tie
+      ? `**Tie** Run /poll tie-break to specify the winner`
+      : `**Winner:** ${results.winner.title}${results.winner.author ? ` by ${results.winner.author}` : ""}`,
+    color: 0x00ff00,
+    fields: [
+      ...formatPollFields(poll),
+      {
+        name: "📊 Final Results",
+        value: nominationsList,
+        inline: false,
+      },
+    ],
+    footer: { text: `Poll ID: ${poll.id}` },
+    timestamp: new Date().toISOString(),
+  };
+
+  return embed;
 }
