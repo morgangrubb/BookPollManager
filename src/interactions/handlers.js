@@ -7,6 +7,7 @@ import { sendDiscordMessage } from "../utils/sendDiscordMessage.js";
 import {
   formatNominations,
   formatNomination,
+  formatPollFields,
   formatPollFooterLine,
   formatResults,
 } from "../utils/format.js";
@@ -116,32 +117,12 @@ export async function handlePollStatus({ poll }) {
           : poll.phase === "voting"
             ? 0xffaa00
             : 0x0099ff,
-      fields: [
-        {
-          name: "📝 Phase",
-          value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1),
-          inline: true,
-        },
-        {
-          name: "📊 Tally Method",
-          value:
-            poll.tallyMethod === "chris-style"
-              ? "Chris Style"
-              : "Ranked Choice",
-          inline: true,
-        },
-      ],
+      fields: formatPollFields(poll),
       footer: { text: formatPollFooterLine(poll) },
       timestamp: new Date().toISOString(),
     };
 
     if (poll.phase === "completed" || poll.phase === "voting") {
-      embed.fields.push({
-        name: "🗳️ Votes Cast",
-        value: poll.results.totalVotes.toString(),
-        inline: true,
-      });
-
       if (
         poll.phase === "completed" &&
         poll.tallyMethod === "chris-style" &&

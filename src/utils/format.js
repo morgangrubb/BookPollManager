@@ -29,13 +29,27 @@ export function formatPollFields(poll) {
       value: poll.phase.charAt(0).toUpperCase() + poll.phase.slice(1),
       inline: true,
     },
-    {
-      name: "📊 Tally Method",
-      value:
-        poll.tallyMethod === "chris-style" ? "Chris Style" : "Ranked Choice",
-      inline: true,
-    },
   ];
+
+  if (poll.phase === "nomination") {
+    fields.push({
+      name: "📅 Deadline",
+      value: `<t:${Math.floor(new Date(poll.nominationDeadline).getTime() / 1000)}:F>`,
+      inline: true,
+    });
+  } else if (poll.phase === "voting") {
+    fields.push({
+      name: "📅 Deadline",
+      value: `<t:${Math.floor(new Date(poll.votingDeadline).getTime() / 1000)}:F>`,
+      inline: true,
+    });
+  }
+
+  fields.push({
+    name: "📊 Tally Method",
+    value: poll.tallyMethod === "chris-style" ? "Chris Style" : "Ranked Choice",
+    inline: true,
+  });
 
   if (poll.phase === "completed" || poll.phase === "voting") {
     fields.push({
