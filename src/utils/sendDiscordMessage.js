@@ -1,6 +1,7 @@
 // Discord message sending helper
 export async function sendDiscordMessage(channelId, content, env) {
   const url = `https://discord.com/api/v10/channels/${channelId}/messages`;
+  const versionNumber = "1.0.0";
 
   try {
     // Add small delay to help with rate limiting
@@ -11,6 +12,7 @@ export async function sendDiscordMessage(channelId, content, env) {
       headers: {
         Authorization: `Bot ${env.DISCORD_TOKEN}`,
         "Content-Type": "application/json",
+        "User-Agent": `DiscordBot (${url}, ${versionNumber})`,
       },
       body: JSON.stringify({
         content: content,
