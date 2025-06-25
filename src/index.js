@@ -10,6 +10,7 @@ import {
   handleEndVoting,
   handleListPolls,
   handleNominate,
+  handlePollAnnounce,
   handlePollStatus,
   handleRemoveNomination,
   handleTieBreak,
@@ -63,6 +64,8 @@ async function handlePollCommand(interaction, env) {
         return await handleCreatePoll(opts);
       case "status":
         return await handlePollStatus(opts);
+      case "announce":
+        return await handlePollAnnounce(opts);
       case "nominate":
         return await handleNominate(opts);
       case "list":
@@ -84,11 +87,14 @@ async function handlePollCommand(interaction, env) {
       case "delete":
         return await handleDeletePoll(opts);
       default:
-        return createResponse(`Unknown poll subcommand: ${subcommand}`);
+        return createResponse({
+          ephemeral: true,
+          content: `Unknown poll subcommand: ${subcommand}`,
+        });
     }
   } catch (error) {
     console.error("Error handling poll command:", error);
-    return createResponse(`❌ ${error.message}`);
+    return createResponse({ ephemeral: true, content: `❌ ${error.message}` });
   }
 }
 
@@ -325,11 +331,17 @@ async function getPollAndStatus(interaction, env) {
     poll = await pollManager.getPoll(pollId);
 
     if (!poll) {
-      return createResponse(`❌ Poll not found`);
+      return createResponse({
+        ephemeral: true,
+        content: `❌ Poll not found`,
+      });
     }
 
     if (poll.guildId !== interaction.guild_id) {
-      return createResponse(`❌ Poll not found`);
+      return createResponse({
+        ephemeral: true,
+        content: `❌ Poll not found`,
+      });
     }
   } else {
     poll = await pollManager.getSingleActivePoll(interaction.guild_id);
@@ -432,9 +444,10 @@ export default {
               return await handlePollCommand(interaction, env);
             }
 
-            return createResponse(
-              "Unknown command. Use `/poll` to manage book polls.",
-            );
+            return createResponse({
+              ephemeral: true,
+              content: "Unknown command. Use `/poll` to manage book polls.",
+            });
           }
 
           // Handle message components (type 3) - buttons, select menus
@@ -489,7 +502,10 @@ export default {
             return await handleModalSubmit(interaction, env);
           }
 
-          return createResponse("Interaction received!");
+          return createResponse({
+            ephemeral: true,
+            content: "Interaction received!",
+          });
         } catch (parseError) {
           console.error("Parse error:", parseError);
           return new Response("Bad request", { status: 400 });

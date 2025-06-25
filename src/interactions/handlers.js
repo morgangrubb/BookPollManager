@@ -21,7 +21,10 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
     getOptionValue(options, "tally_method") || "ranked-choice";
 
   if (!title || !nominationEnd || !votingEnd) {
-    return createResponse("Missing required parameters for poll creation.");
+    return createResponse({
+      ephemeral: true,
+      content: "Missing required parameters for poll creation.",
+    });
   }
 
   const nominationDeadline = new Date(nominationEnd);
@@ -29,20 +32,25 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
 
   // Validate dates
   if (isNaN(nominationDeadline.getTime()) || isNaN(votingDeadline.getTime())) {
-    return createResponse(
-      "Invalid date format. Please use YYYY-MM-DD HH:MM format.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "Invalid date format. Please use YYYY-MM-DD HH:MM format.",
+    });
   }
 
   const now = new Date();
   if (nominationDeadline <= now) {
-    return createResponse("Nomination deadline must be in the future.");
+    return createResponse({
+      ephemeral: true,
+      content: "Nomination deadline must be in the future.",
+    });
   }
 
   if (votingDeadline <= nominationDeadline) {
-    return createResponse(
-      "Voting deadline must be after the nomination deadline.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "Voting deadline must be after the nomination deadline.",
+    });
   }
 
   const pollData = {
@@ -102,7 +110,10 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
 
 export async function handlePollStatus({ poll }) {
   if (!poll) {
-    return createResponse("❌ Poll not found.");
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Poll not found.",
+    });
   }
 
   let embed;
@@ -113,16 +124,31 @@ export async function handlePollStatus({ poll }) {
     embed = formatStatus(poll);
   }
 
-  return new Response(
-    JSON.stringify({
-      type: 4,
-      data: { embeds: [embed] },
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  return createResponse({
+    ephemeral: true,
+    embeds: [embed],
+  });
+}
+
+export async function handlePollAnnounce({ poll }) {
+  if (!poll) {
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Poll not found.",
+    });
+  }
+
+  let embed;
+
+  if (poll.phase === "completed") {
+    embed = formatResults(poll);
+  } else {
+    embed = formatStatus(poll);
+  }
+
+  return createResponse({
+    embeds: [embed],
+  });
 }
 
 export async function handleNominate({
@@ -134,12 +160,18 @@ export async function handleNominate({
   ...opts
 }) {
   if (poll.phase !== "nomination") {
-    createResponse("Poll is not in nomination phase");
+    return createResponse({
+      ephemeral: true,
+      content: "Poll is not in nomination phase",
+    });
   }
 
   if (poll.nominations.some((nom) => nom.userId === userId)) {
     if (!opts.isAdmin && !opts.isPollCreator) {
-      return createResponse("You have already nominated a book.");
+      return createResponse({
+        ephemeral: true,
+        content: "You have already nominated a book.",
+      });
     }
   }
 
@@ -149,14 +181,23 @@ export async function handleNominate({
 
   // Validate required fields
   if (!title) {
-    return createResponse("Book title is required.");
+    return createResponse({
+      ephemeral: true,
+      content: "Book title is required.",
+    });
   }
   if (!link) {
-    return createResponse("Book link is required.");
+    return createResponse({
+      ephemeral: true,
+      content: "Book link is required.",
+    });
   }
 
   if (!title) {
-    return createResponse("Book title is required for nomination.");
+    return createResponse({
+      ephemeral: true,
+      content: "Book title is required for nomination.",
+    });
   }
 
   const nomination = {
@@ -169,32 +210,34 @@ export async function handleNominate({
 
   // Announce nomination to channel
   try {
-    const channelId = poll.channelId || interaction.channel_id;
-
     await pollManager.nominateBook(poll.id, nomination, opts);
 
-    if (channelId) {
-      let announcementContent = `📚 **New Book Nomination!**\n\n${formatNomination(nomination)}\n\nFor **${poll.title}**`;
+    const updatedPoll = await pollManager.getPoll(poll.id);
 
-      console.log("Sending nomination announcement to channel:", channelId);
-      await sendDiscordMessage(channelId, announcementContent, pollManager.env);
-      console.log("Nomination announcement sent successfully");
-    }
+    return createResponse({
+      content: `\n\u200b\n\u200b📖 ${nomination.username} nominated ${formatNomination(nomination, { includeUser: false })}!\n\u200b`,
+      embeds: [formatStatus(updatedPoll)],
+    });
   } catch (error) {
     console.error("Failed to announce nomination:", error);
+    console.error(error.stack);
     // Don't fail the nomination if announcement fails
   }
 
-  return createResponse(
-    `✅ Successfully nominated "${title}" ${author ? `by ${author}` : ""}!`,
-  );
+  return createResponse({
+    ephemeral: true,
+    content: `✅ Successfully nominated "${title}" ${author ? `by ${author}` : ""}!`,
+  });
 }
 
 export async function handleListPolls({ interaction, pollManager }) {
   const activePolls = await pollManager.getAllPolls(interaction.guild_id);
 
   if (activePolls.length === 0) {
-    return createResponse("📚 No active polls found in this server.");
+    return createResponse({
+      ephemeral: true,
+      content: "📚 No active polls found in this server.",
+    });
   }
 
   // Handle pagination for more than 10 polls
@@ -274,19 +317,27 @@ export async function handleEditNomination({
     // Find by nomination_id
     const nomination = poll.nominations[nominationIdOpt - 1];
     if (!nomination) {
-      return createResponse("❌ Nomination not found.");
+      return createResponse({
+        ephemeral: true,
+        content: "❌ Nomination not found.",
+      });
     }
     nominationsToEdit = [nomination];
   } else {
     // Find nominations by user
     const userNoms = poll.nominations.filter((n) => n.userId === userId);
     if (userNoms.length === 0) {
-      return createResponse("❌ You have no nominations to edit.");
+      return createResponse({
+        ephemeral: true,
+        content: "❌ You have no nominations to edit.",
+      });
     }
     if (userNoms.length > 1 && !(isAdmin || isPollCreator)) {
-      return createResponse(
-        "❌ You have multiple nominations. Please specify nomination_id.",
-      );
+      return createResponse({
+        ephemeral: true,
+        content:
+          "❌ You have multiple nominations. Please specify nomination_id.",
+      });
     }
     nominationsToEdit = userNoms.length === 1 ? [userNoms[0]] : userNoms;
   }
@@ -294,24 +345,30 @@ export async function handleEditNomination({
   // Permission check
   for (const nomination of nominationsToEdit) {
     if (!(isAdmin || isPollCreator) && nomination.userId !== userId) {
-      return createResponse("❌ You can only edit your own nominations.");
+      return createResponse({
+        ephemeral: true,
+        content: "❌ You can only edit your own nominations.",
+      });
     }
   }
 
   // Only one nomination should be edited at a time
   if (nominationsToEdit.length > 1) {
-    return createResponse(
-      "❌ Multiple nominations found. Please specify nomination_id.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Multiple nominations found. Please specify nomination_id.",
+    });
   }
 
   const nomination = nominationsToEdit[0];
 
   // Validate at least one field to update
   if (!newTitle && !newAuthor && !newLink) {
-    return createResponse(
-      "Please specify at least one field to update (title, author, or link).",
-    );
+    return createResponse({
+      ephemeral: true,
+      content:
+        "Please specify at least one field to update (title, author, or link).",
+    });
   }
 
   // Update nomination in DB
@@ -326,9 +383,15 @@ export async function handleEditNomination({
       isPollCreator,
     });
 
-    return createResponse("✅ Nomination updated successfully.");
+    return createResponse({
+      ephemeral: true,
+      content: "✅ Nomination updated successfully.",
+    });
   } catch (error) {
-    return createResponse(`❌ Failed to update nomination: ${error.message}`);
+    return createResponse({
+      ephemeral: true,
+      content: `❌ Failed to update nomination: ${error.message}`,
+    });
   }
 }
 
@@ -345,9 +408,11 @@ export async function handleTieBreak({
     poll.phase !== "completed" ||
     poll.tallyMethod !== "chris-style"
   ) {
-    return createResponse(
-      "❌ Tie-break is only available for completed Chris-style polls.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content:
+        "❌ Tie-break is only available for completed Chris-style polls.",
+    });
   }
   if (
     !poll.results ||
@@ -355,12 +420,16 @@ export async function handleTieBreak({
     !Array.isArray(poll.results.tiedNominations) ||
     poll.results.tiedNominations.length < 2
   ) {
-    return createResponse("❌ There is no tie to break for this poll.");
+    return createResponse({
+      ephemeral: true,
+      content: "❌ There is no tie to break for this poll.",
+    });
   }
   if (!(isAdmin || isPollCreator)) {
-    return createResponse(
-      "❌ Only the poll creator or a server admin can break a tie.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Only the poll creator or a server admin can break a tie.",
+    });
   }
 
   const winnerNominationId = interaction.data?.values?.[0];
@@ -407,9 +476,10 @@ export async function handleTieBreak({
     (nom) => String(nom.id) === String(winnerNominationId),
   );
   if (!winnerNom) {
-    return createResponse(
-      "❌ Selected winner is not among the tied nominations.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Selected winner is not among the tied nominations.",
+    });
   }
 
   // Update poll results in DB
@@ -442,7 +512,10 @@ export async function handleTieBreak({
       },
     );
   } catch (error) {
-    return createResponse(`❌ Failed to resolve tie: ${error.message}`);
+    return createResponse({
+      ephemeral: true,
+      content: `❌ Failed to resolve tie: ${error.message}`,
+    });
   }
 }
 
@@ -460,13 +533,18 @@ export async function handleWithdrawNomination({
     );
 
     if (userNominations.length === 0) {
-      return createResponse("❌ You have no nominations to withdraw.");
+      return createResponse({
+        ephemeral: true,
+        content: "❌ You have no nominations to withdraw.",
+      });
     }
 
     if (userNominations.length > 1) {
-      return createResponse(
-        "❌ You have multiple nominations to withdraw, use remove-nomination.",
-      );
+      return createResponse({
+        ephemeral: true,
+        content:
+          "❌ You have multiple nominations to withdraw, use remove-nomination.",
+      });
     }
 
     const userNomination = userNominations[0];
@@ -493,36 +571,38 @@ export async function handleWithdrawNomination({
       }
     }
 
-    return createResponse("✅ Your nomination has been withdrawn.");
+    return createResponse({
+      ephemeral: true,
+      content: "✅ Your nomination has been withdrawn.",
+    });
   } catch (error) {
-    return createResponse(`❌ ${error.message}`);
+    return createResponse({ ephemeral: true, content: `❌ ${error.message}` });
   }
 }
 
 export async function handleVote({ interaction, poll, userId }) {
+  console.log(1);
   if (poll.phase !== "voting") {
-    return createResponse("This poll is not in the voting phase.");
+    return createResponse({
+      ephemeral: true,
+      content: "This poll is not in the voting phase.",
+    });
   }
+  console.log(2);
 
   // Check if user already voted
   const existingVote = (poll.votes || []).some(
     (vote) => vote.userId === userId,
   );
+  console.log(3);
 
   if (existingVote) {
-    return new Response(
-      JSON.stringify({
-        type: 4,
-        data: {
-          content: "You have already voted in this poll!",
-          flags: 64,
-        },
-      }),
-      {
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "You have already voted in this poll!",
+    });
   }
+  console.log(poll.tallyMethod);
 
   // Generate voting interface based on tally method
   if (poll.tallyMethod === "chris-style") {
@@ -545,18 +625,23 @@ export async function handleRemoveNomination({
   const nominationId = getOptionValue(options, "nomination_id");
 
   if (!nominationId) {
-    return createResponse("Nomination ID is required.");
+    return createResponse({
+      ephemeral: true,
+      content: "Nomination ID is required.",
+    });
   }
 
   try {
     if (!poll) {
-      return createResponse("Poll not found.");
+      return createResponse({ ephemeral: true, content: "Poll not found." });
     }
 
     if (!isAdmin && !isPollCreator) {
-      return createResponse(
-        "Only server admins or the poll creator can remove nominations.",
-      );
+      return createResponse({
+        ephemeral: true,
+        content:
+          "Only server admins or the poll creator can remove nominations.",
+      });
     }
 
     const nominationIndex = parseInt(nominationId) - 1;
@@ -566,18 +651,22 @@ export async function handleRemoveNomination({
       !poll.nominations ||
       nominationIndex >= poll.nominations.length
     ) {
-      return createResponse("Invalid nomination ID.");
+      return createResponse({
+        ephemeral: true,
+        content: "Invalid nomination ID.",
+      });
     }
 
     const nomination = poll.nominations[nominationIndex];
 
     await pollManager.removeUserNomination(poll.id, nomination.id);
 
-    return createResponse(
-      `✅ Removed nomination: "${nomination.title}" ${nomination.author ? `by ${nomination.author}` : ""}`,
-    );
+    return createResponse({
+      ephemeral: true,
+      content: `✅ Removed nomination: "${nomination.title}" ${nomination.author ? `by ${nomination.author}` : ""}`,
+    });
   } catch (error) {
-    return createResponse(`❌ ${error.message}`);
+    return createResponse({ ephemeral: true, content: `❌ ${error.message}` });
   }
 }
 
@@ -588,13 +677,17 @@ export async function handleEndNominations({
   isPollCreator,
 }) {
   if (!isAdmin && !isPollCreator) {
-    return createResponse(
-      "Only admins or the poll creator can end the nomination phase.",
-    );
+    return createResponse({
+      ephemeral: true,
+      content: "Only admins or the poll creator can end the nomination phase.",
+    });
   }
 
   if (poll.phase !== "nomination") {
-    return createResponse("This poll is not in the nomination phase.");
+    return createResponse({
+      ephemeral: true,
+      content: "This poll is not in the nomination phase.",
+    });
   }
 
   try {
@@ -613,11 +706,12 @@ export async function handleEndNominations({
       }
     }
 
-    return createResponse(
-      `✅ Nomination phase ended early for "${poll.title}". Voting phase has started!`,
-    );
+    return createResponse({
+      ephemeral: true,
+      content: `✅ Nomination phase ended early for "${poll.title}". Voting phase has started!`,
+    });
   } catch (error) {
-    return createResponse(`❌ ${error.message}`);
+    return createResponse({ ephemeral: true, content: `❌ ${error.message}` });
   }
 }
 
@@ -628,15 +722,21 @@ export async function handleEndVoting({
   isPollCreator,
 }) {
   if (!poll) {
-    return createResponse("Poll not found.");
+    return createResponse({ ephemeral: true, content: "Poll not found." });
   }
 
   if (!isAdmin && !isPollCreator) {
-    return createResponse("Only the poll creator can end the voting phase.");
+    return createResponse({
+      ephemeral: true,
+      content: "Only the poll creator can end the voting phase.",
+    });
   }
 
   if (poll.phase !== "voting") {
-    return createResponse("This poll is not in the voting phase.");
+    return createResponse({
+      ephemeral: true,
+      content: "This poll is not in the voting phase.",
+    });
   }
 
   try {
@@ -647,9 +747,10 @@ export async function handleEndVoting({
     const results = pollManager.calculateResults(updatedPoll);
 
     if (!results || (!results.winner && !results.tie)) {
-      return createResponse(
-        "❌ Unable to calculate results. No votes may have been cast.",
-      );
+      return createResponse({
+        ephemeral: true,
+        content: "❌ Unable to calculate results. No votes may have been cast.",
+      });
     }
 
     const embed = formatResults(updatedPoll);
@@ -666,19 +767,15 @@ export async function handleEndVoting({
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        type: 4,
-        data: { embeds: [embed] },
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    return createResponse({
+      embeds: [embed],
+    });
   } catch (error) {
     console.error("Error ending voting:", error);
-    return createResponse(`❌ Failed to end voting: ${error.message}`);
+    return createResponse({
+      ephemeral: true,
+      content: `❌ Failed to end voting: ${error.message}`,
+    });
   }
 }
 
@@ -694,42 +791,52 @@ export async function handleDeletePoll({
   const userId = interaction?.member?.user?.id || interaction?.user?.id;
 
   if (!userId) {
-    return createResponse("❌ Unable to identify user.", true);
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Unable to identify user.",
+    });
   }
 
   const pollId = getOptionValue(options, "poll_id");
   const confirmText = getOptionValue(options, "confirm");
 
   if (!pollId) {
-    return createResponse("❌ Poll ID is required.", true);
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Poll ID is required.",
+    });
   }
 
   if (!poll || poll.guildId !== guildId) {
-    return createResponse("❌ Poll could not be found.", true);
+    return createResponse({
+      ephemeral: true,
+      content: "❌ Poll could not be found.",
+    });
   }
 
   if (confirmText !== "DELETE") {
-    return createResponse(
-      '❌ To confirm deletion, you must type "DELETE" exactly.',
-      true,
-    );
+    return createResponse({
+      ephemeral: true,
+      content: '❌ To confirm deletion, you must type "DELETE" exactly.',
+    });
   }
 
   if (!isAdmin && !isPollCreator) {
-    return createResponse(
-      "❌ Only the poll creator or server administrators can delete polls.",
-      true,
-    );
+    return createResponse({
+      ephemeral: true,
+      content:
+        "❌ Only the poll creator or server administrators can delete polls.",
+    });
   }
 
   try {
     const deleted = await pollManager.deletePoll(pollId);
 
     if (!deleted) {
-      return createResponse(
-        "❌ Failed to delete poll. It may have already been deleted.",
-        true,
-      );
+      return createResponse({
+        ephemeral: true,
+        content: "❌ Failed to delete poll. It may have already been deleted.",
+      });
     }
 
     // Send deletion announcement to the channel
@@ -755,15 +862,16 @@ export async function handleDeletePoll({
       }
     }
 
-    return createResponse(
-      `✅ Poll "${poll.title}" has been successfully deleted.`,
-      true,
-    );
+    return createResponse({
+      ephemeral: true,
+      content: `✅ Poll "${poll.title}" has been successfully deleted.`,
+    });
   } catch (error) {
     console.error("Error deleting poll:", error);
-    return createResponse(
-      "❌ An error occurred while deleting the poll. Please try again.",
-      true,
-    );
+    return createResponse({
+      ephemeral: true,
+      content:
+        "❌ An error occurred while deleting the poll. Please try again.",
+    });
   }
 }

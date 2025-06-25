@@ -1,9 +1,9 @@
-export function createResponse(content, ephemeral = true) {
+export function createResponse({ ephemeral = false, ...data }) {
   return new Response(
     JSON.stringify({
       type: 4,
       data: {
-        content,
+        ...data,
         flags: ephemeral ? 64 : 0,
       },
     }),

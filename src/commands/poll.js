@@ -58,6 +58,20 @@ export const pollCommand = {
         ],
       },
       {
+        name: "announce",
+        description: "Announce the poll status to the channel",
+        type: 1, // SUB_COMMAND
+        options: [
+          {
+            name: "poll_id",
+            description:
+              "Poll ID (optional, will use most recent poll if not provided)",
+            type: 3, // STRING
+            required: false,
+          },
+        ],
+      },
+      {
         name: "nominate",
         description: "Nominate a book",
         type: 1, // SUB_COMMAND

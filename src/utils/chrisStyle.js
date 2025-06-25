@@ -1,6 +1,7 @@
 import { InteractionResponseType } from "discord-interactions";
 import { sendDiscordMessage } from "./sendDiscordMessage.js";
-import { formatNomination, formatPollFields } from "./format.js";
+import { formatNomination, formatPollFields, formatStatus } from "./format.js";
+import { createResponse } from "./createResponse.js";
 
 /**
  * Implements Chris-style voting where users pick exactly 3 books
@@ -153,33 +154,28 @@ export async function handleChrisStyleVoting(interaction, env, pollManager) {
     // Get poll for announcement
     const poll = await pollManager.getPoll(pollId);
 
-    // Send announcement to channel
-    try {
-      if (poll?.channelId) {
-        const announcementContent = `🗳️ **Vote Submitted!**\n\n<@${userId}> has voted in **${poll.title}**`;
+    // // Send announcement to channel
+    // try {
+    //   if (poll?.channelId) {
+    //     const announcementContent = `🗳️ **Vote Submitted!**\n\n<@${userId}> has voted in **${poll.title}**`;
 
-        await sendDiscordMessage(
-          poll.channelId,
-          announcementContent,
-          pollManager.env,
-        );
-      }
-    } catch (error) {
-      console.error("Failed to announce vote:", error);
-    }
+    //     await sendDiscordMessage(
+    //       poll.channelId,
+    //       announcementContent,
+    //       pollManager.env,
+    //     );
+    //   }
+    // } catch (error) {
+    //   console.error("Failed to announce vote:", error);
+    // }
 
-    return new Response(
-      JSON.stringify({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          content: "✅ Your vote has been submitted successfully!",
-          flags: 64,
-        },
-      }),
-      {
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    const username =
+      interaction.member?.user?.username || interaction.user?.username;
+
+    return createResponse({
+      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b`,
+      embeds: [formatStatus(poll)],
+    });
   }
 
   // Update interface with current selections

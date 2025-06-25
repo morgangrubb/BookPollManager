@@ -1,9 +1,9 @@
 import { formatChrisStyleResults } from "./chrisStyle";
 import { formatRankedChoiceResults } from "./rankedChoice";
 
-export function formatNomination(nomination) {
+export function formatNomination(nomination, { includeUser = true } = {}) {
   if (!nomination) return "Invalid nomination";
-  return `[${nomination.title} ${nomination.author ? `by ${nomination.author}` : ""}](${nomination.link}) (${nomination.username})`;
+  return `[${nomination.title} ${nomination.author ? `by ${nomination.author}` : ""}](${nomination.link})${includeUser ? ` (${nomination.username})` : ""}`;
 }
 
 export function formatPollFooterLine(poll) {
