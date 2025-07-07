@@ -179,7 +179,9 @@ export async function handleChrisStyleVoting(interaction, env, pollManager) {
   }
 
   // Update interface with current selections
-  return generateChrisStyleVotingInterface(poll, userId, session.selections);
+  return generateChrisStyleVotingInterface(poll, userId, session.selections, {
+    update: true,
+  });
 }
 
 // TODO: Only show the dropdown for the current selection
@@ -268,7 +270,8 @@ export async function handleChrisStyleSubmission(
         JSON.stringify({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: "❌ No valid selections found. Please make your selections.",
+            content:
+              "❌ No valid selections found. Please make your selections.",
             flags: 64,
           },
         }),
@@ -311,8 +314,8 @@ export function generateChrisStyleVotingInterface(
   poll,
   userId,
   existingSelections = [],
+  { update = false } = {},
 ) {
-
   console.log("\n\nexistingSelections");
   console.log(JSON.stringify(existingSelections));
 
@@ -367,7 +370,9 @@ export function generateChrisStyleVotingInterface(
 
   return new Response(
     JSON.stringify({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: update
+        ? InteractionResponseType.UPDATE_MESSAGE
+        : InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
         content: `📊 **Chris-Style Voting** - ${poll.title}\n\n${statusText}`,
         components,
