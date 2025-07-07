@@ -1,5 +1,5 @@
-import { formatChrisStyleResults } from "./chrisStyle";
-import { formatRankedChoiceResults } from "./rankedChoice";
+import { formatChrisStyleResults } from "./chrisStyle.js";
+import { formatRankedChoiceResults } from "./rankedChoice.js";
 
 export function formatNomination(nomination, { includeUser = true } = {}) {
   if (!nomination) return "Invalid nomination";

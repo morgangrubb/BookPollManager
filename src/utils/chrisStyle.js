@@ -183,11 +183,136 @@ export async function handleChrisStyleVoting(interaction, env, pollManager) {
 }
 
 // TODO: Only show the dropdown for the current selection
+export async function handleChrisStyleSubmission(
+  interaction,
+  env,
+  pollManager,
+) {
+  const pollId = interaction.data.custom_id.split("_")[3];
+  const userId = interaction.member?.user?.id || interaction.user?.id;
+
+  try {
+    // Get voting session
+    const userKey = `chris_${pollId}_${userId}`;
+    const session = await pollManager.getVotingSession(userKey);
+
+    // Get poll data to check requirements
+    const poll = await pollManager.getPoll(pollId);
+    if (!poll || poll.phase !== "voting") {
+      return new Response(
+        JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: "❌ This poll is not in voting phase.",
+            flags: 64,
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const totalOptions = poll.nominations?.length || 0;
+    const requiredSelections = Math.min(3, totalOptions);
+
+    if (
+      !session ||
+      Object.keys(session.selections).length < requiredSelections
+    ) {
+      return new Response(
+        JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: `❌ Please select all ${requiredSelections} options before submitting. You have selected ${Object.keys(session?.selections || {}).length}/${requiredSelections}.`,
+            flags: 64,
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Check for duplicate selections
+    const selectedBooks = Object.values(session.selections);
+    if (new Set(selectedBooks).size !== selectedBooks.length) {
+      return new Response(
+        JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              "❌ Each book can only be selected once. Please check your selections for duplicates.",
+            flags: 64,
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Convert selections to rankings format
+    const rankings = Object.entries(session.selections)
+      .sort(([a], [b]) => {
+        const order = { first: 0, second: 1, third: 2 };
+        return order[a.position] - order[b.position];
+      })
+      .map(([position, nominationId]) => ({
+        nominationId,
+        position,
+      }));
+
+    if (rankings.length === 0) {
+      return new Response(
+        JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: "❌ No valid selections found. Please make your selections.",
+            flags: 64,
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Submit vote
+    await pollManager.submitVote(pollId, userId, rankings);
+
+    // Clean up session
+    await pollManager.deleteVotingSession(userKey);
+
+    const username =
+      interaction.member?.user?.username || interaction.user?.username;
+
+    return createResponse({
+      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b`,
+      embeds: [formatStatus(poll)],
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: `❌ ${error.message}`,
+          flags: 64,
+        },
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+}
+
 export function generateChrisStyleVotingInterface(
   poll,
   userId,
   existingSelections = [],
 ) {
+
   console.log("\n\nexistingSelections");
   console.log(JSON.stringify(existingSelections));
 
