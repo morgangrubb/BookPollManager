@@ -1,261 +1,35 @@
+import { createPollCommand } from "../interactions/create.js";
+import { statusCommand } from "../interactions/status.js";
+import { announceCommand } from "../interactions/announce.js";
+import { nominateCommand } from "../interactions/nominate.js";
+import { listCommand } from "../interactions/list.js";
+import { withdrawNominationCommand } from "../interactions/withdraw-nomination.js";
+import { voteCommand } from "../interactions/vote.js";
+import { removeNominationCommand } from "../interactions/remove-nomination.js";
+import { editNominationCommand } from "../interactions/edit-nomination.js";
+import { tieBreakCommand } from "../interactions/tie-break.js";
+import { endNominationsCommand } from "../interactions/end-nominations.js";
+import { endVotingCommand } from "../interactions/end-voting.js";
+import { deletePollCommand } from "../interactions/delete.js";
+
 export const pollCommand = {
   data: {
     name: "poll",
     description: "Manage book polls",
     options: [
-      {
-        name: "create",
-        description: "Create a new book poll",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "title",
-            description: "Poll title",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "nomination_end",
-            description:
-              "Nomination deadline (YYYY-MM-DD HH:MM) (hour and minute optional)",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "voting_end",
-            description:
-              "Voting deadline (YYYY-MM-DD HH:MM) (hour and minute optional)",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "tally_method",
-            description: "Voting method",
-            type: 3, // STRING
-            required: false,
-            choices: [
-              {
-                name: "Ranked Choice (rank all books)",
-                value: "ranked-choice",
-              },
-              { name: "Chris Style (top 3 picks)", value: "chris-style" },
-            ],
-          },
-        ],
-      },
-      {
-        name: "status",
-        description: "Check poll status",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "announce",
-        description: "Announce the poll status to the channel",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "nominate",
-        description: "Nominate a book",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "title",
-            description: "Book title",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "author",
-            description: "Book author",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "link",
-            description: "Link to book",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "list",
-        description: "List all polls",
-        type: 1, // SUB_COMMAND
-      },
-      {
-        name: "withdraw-nomination",
-        description: "Withdraw your nomination from the active poll",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "vote",
-        description: "Vote in the active poll",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "remove-nomination",
-        description: "Remove a nomination",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "nomination_id",
-            description: "Nomination ID to remove",
-            type: 3, // STRING
-            required: true,
-          },
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "edit-nomination",
-        description: "Edit a nomination",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "title",
-            description: "New book title",
-            type: 3, // STRING
-            required: false,
-          },
-          {
-            name: "author",
-            description: "New book author",
-            type: 3, // STRING
-            required: false,
-          },
-          {
-            name: "link",
-            description: "New link to book",
-            type: 3, // STRING
-            required: false,
-          },
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-          {
-            name: "nomination_id",
-            description:
-              "Nomination ID (optional, required if you have multiple nominations)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "tie-break",
-        description:
-          "Resolve a tie in a Chris-style poll by selecting a winner",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description: "Poll ID",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "end-nominations",
-        description: "End nomination phase and start voting",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "end-voting",
-        description: "End voting phase and show results",
-        type: 1, // SUB_COMMAND
-        options: [
-          {
-            name: "poll_id",
-            description:
-              "Poll ID (optional, will use most recent poll if not provided)",
-            type: 3, // STRING
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "delete",
-        description: "Delete a poll",
-        type: 1,
-        options: [
-          {
-            name: "poll_id",
-            description: "Poll ID to delete",
-            type: 3,
-            required: true,
-          },
-          {
-            name: "confirm",
-            description: 'Type "DELETE" to confirm deletion',
-            type: 3,
-            required: true,
-          },
-        ],
-      },
+      createPollCommand,
+      statusCommand,
+      announceCommand,
+      nominateCommand,
+      listCommand,
+      withdrawNominationCommand,
+      voteCommand,
+      removeNominationCommand,
+      editNominationCommand,
+      tieBreakCommand,
+      endNominationsCommand,
+      endVotingCommand,
+      deletePollCommand,
     ],
   },
 };

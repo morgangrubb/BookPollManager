@@ -2,25 +2,40 @@
 import { InteractionResponseType } from "discord-interactions";
 import { PollManager } from "./services/pollManager.js";
 import { checkPollPhases } from "./services/scheduler.js";
-import {
-  handleCreatePoll,
-  handleDeletePoll,
-  handleEditNomination,
-  handleEndNominations,
-  handleEndVoting,
-  handleListPolls,
-  handleNominate,
-  handlePollAnnounce,
-  handlePollStatus,
-  handleRemoveNomination,
-  handleTieBreak,
-  handleVote,
-  handleWithdrawNomination,
-} from "./interactions/handlers.js";
 import { createResponse } from "./utils/createResponse.js";
 import { getOptionValue } from "./utils/getOptionValue.js";
 import { handleChrisStyleVoting } from "./utils/chrisStyle.js";
 import { handleRankedChoiceVoting } from "./utils/rankedChoice.js";
+
+import { handleCreatePoll } from "./interactions/create.js";
+import { handleDeletePoll } from "./interactions/delete.js";
+import { handleEditNomination } from "./interactions/edit-nomination.js";
+import { handleEndNominations } from "./interactions/end-nominations.js";
+import { handleEndVoting } from "./interactions/end-voting.js";
+import { handleListPolls } from "./interactions/list.js";
+import { handleNominate } from "./interactions/nominate.js";
+import { handlePollAnnounce } from "./interactions/announce.js";
+import { handlePollStatus } from "./interactions/status.js";
+import { handleRemoveNomination } from "./interactions/remove-nomination.js";
+import { handleTieBreak } from "./interactions/tie-break.js";
+import { handleVote } from "./interactions/vote.js";
+import { handleWithdrawNomination } from "./interactions/withdraw-nomination.js";
+
+const commandHandlers = {
+  create: handleCreatePoll,
+  delete: handleDeletePoll,
+  "edit-nomination": handleEditNomination,
+  "end-nominations": handleEndNominations,
+  "end-voting": handleEndVoting,
+  list: handleListPolls,
+  nominate: handleNominate,
+  announce: handlePollAnnounce,
+  status: handlePollStatus,
+  "remove-nomination": handleRemoveNomination,
+  "tie-break": handleTieBreak,
+  vote: handleVote,
+  "withdraw-nomination": handleWithdrawNomination,
+};
 
 // Signature verification using Web Crypto API
 async function verifyDiscordSignature(body, signature, timestamp, publicKey) {
@@ -55,46 +70,24 @@ function hexToBytes(hex) {
 // Poll command handler
 async function handlePollCommand(interaction, env) {
   const subcommand = interaction.data.options?.[0]?.name;
+  const handler = commandHandlers[subcommand];
 
-  try {
-    const opts = await getPollAndStatus(interaction, env);
-
-    switch (subcommand) {
-      case "create":
-        return await handleCreatePoll(opts);
-      case "status":
-        return await handlePollStatus(opts);
-      case "announce":
-        return await handlePollAnnounce(opts);
-      case "nominate":
-        return await handleNominate(opts);
-      case "list":
-        return await handleListPolls(opts);
-      case "withdraw-nomination":
-        return await handleWithdrawNomination(opts);
-      case "vote":
-        return await handleVote(opts);
-      case "edit-nomination":
-        return await handleEditNomination(opts);
-      case "remove-nomination":
-        return await handleRemoveNomination(opts);
-      case "end-nominations":
-        return await handleEndNominations(opts);
-      case "end-voting":
-        return await handleEndVoting(opts);
-      case "tie-break":
-        return await handleTieBreak(opts);
-      case "delete":
-        return await handleDeletePoll(opts);
-      default:
-        return createResponse({
-          ephemeral: true,
-          content: `Unknown poll subcommand: ${subcommand}`,
-        });
+  if (handler) {
+    try {
+      const opts = await getPollAndStatus(interaction, env);
+      return await handler(opts);
+    } catch (error) {
+      console.error(`Error handling subcommand "${subcommand}":`, error);
+      return createResponse({
+        ephemeral: true,
+        content: `❌ An error occurred while processing your request.`,
+      });
     }
-  } catch (error) {
-    console.error("Error handling poll command:", error);
-    return createResponse({ ephemeral: true, content: `❌ ${error.message}` });
+  } else {
+    return createResponse({
+      ephemeral: true,
+      content: `Unknown poll subcommand: ${subcommand}`,
+    });
   }
 }
 
