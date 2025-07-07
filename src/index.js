@@ -6,36 +6,7 @@ import { createResponse } from "./utils/createResponse.js";
 import { getOptionValue } from "./utils/getOptionValue.js";
 import { handleChrisStyleVoting } from "./utils/chrisStyle.js";
 import { handleRankedChoiceVoting } from "./utils/rankedChoice.js";
-
-import { handleCreatePoll } from "./interactions/create.js";
-import { handleDeletePoll } from "./interactions/delete.js";
-import { handleEditNomination } from "./interactions/edit-nomination.js";
-import { handleEndNominations } from "./interactions/end-nominations.js";
-import { handleEndVoting } from "./interactions/end-voting.js";
-import { handleListPolls } from "./interactions/list.js";
-import { handleNominate } from "./interactions/nominate.js";
-import { handlePollAnnounce } from "./interactions/announce.js";
-import { handlePollStatus } from "./interactions/status.js";
-import { handleRemoveNomination } from "./interactions/remove-nomination.js";
-import { handleTieBreak } from "./interactions/tie-break.js";
-import { handleVote } from "./interactions/vote.js";
-import { handleWithdrawNomination } from "./interactions/withdraw-nomination.js";
-
-const commandHandlers = {
-  create: handleCreatePoll,
-  delete: handleDeletePoll,
-  "edit-nomination": handleEditNomination,
-  "end-nominations": handleEndNominations,
-  "end-voting": handleEndVoting,
-  list: handleListPolls,
-  nominate: handleNominate,
-  announce: handlePollAnnounce,
-  status: handlePollStatus,
-  "remove-nomination": handleRemoveNomination,
-  "tie-break": handleTieBreak,
-  vote: handleVote,
-  "withdraw-nomination": handleWithdrawNomination,
-};
+import { handlePollCommand } from "./interactions/index.js";
 
 // Signature verification using Web Crypto API
 async function verifyDiscordSignature(body, signature, timestamp, publicKey) {
@@ -65,30 +36,6 @@ function hexToBytes(hex) {
     bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
   }
   return bytes;
-}
-
-// Poll command handler
-async function handlePollCommand(interaction, env) {
-  const subcommand = interaction.data.options?.[0]?.name;
-  const handler = commandHandlers[subcommand];
-
-  if (handler) {
-    try {
-      const opts = await getPollAndStatus(interaction, env);
-      return await handler(opts);
-    } catch (error) {
-      console.error(`Error handling subcommand "${subcommand}":`, error);
-      return createResponse({
-        ephemeral: true,
-        content: `❌ An error occurred while processing your request.`,
-      });
-    }
-  } else {
-    return createResponse({
-      ephemeral: true,
-      content: `Unknown poll subcommand: ${subcommand}`,
-    });
-  }
 }
 
 async function handleButtonInteraction(interaction, env) {
