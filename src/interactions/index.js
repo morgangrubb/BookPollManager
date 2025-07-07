@@ -1,7 +1,6 @@
 // src/interactions/index.js
 import { InteractionResponseType } from "discord-interactions";
 import { createResponse } from "../utils/createResponse.js";
-import { getOptionValue } from "../utils/getOptionValue.js";
 import { PollManager } from "../services/pollManager.js";
 
 import { handleCreatePoll } from "./create.js";
@@ -25,7 +24,7 @@ import {
   handleRankedChoiceVoting,
   handleRankedChoiceSubmission,
 } from "../utils/rankedChoice.js";
-import { getPollAndStatus } from "../utils/pollHelpers.js";
+import { getPollAndStatus } from "../utils/discord/pollHelpers.js";
 
 const commandHandlers = {
   create: handleCreatePoll,

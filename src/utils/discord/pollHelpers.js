@@ -4,7 +4,7 @@ import { getOptionValue } from "../getOptionValue.js";
 import { createResponse } from "../createResponse.js";
 import { PollManager } from "../../services/pollManager.js";
 
-async function getPollAndStatus(interaction, env) {
+export async function getPollAndStatus(interaction, env) {
   const pollManager = new PollManager(env);
   const userId = interaction?.member?.user?.id || interaction?.user?.id;
   const options = interaction.data.options?.[0]?.options || [];
