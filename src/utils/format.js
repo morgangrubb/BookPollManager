@@ -3,7 +3,7 @@ import { formatRankedChoiceResults } from "./rankedChoice.js";
 
 export function formatNomination(nomination, { includeUser = true } = {}) {
   if (!nomination) return "Invalid nomination";
-  return `[${nomination.title} ${nomination.author ? `by ${nomination.author}` : ""}](${nomination.link})${includeUser ? ` (${nomination.username})` : ""}`;
+  return `[${nomination.title}${nomination.author ? ` by ${nomination.author}` : ""}](${nomination.link})${includeUser ? ` (${nomination.username})` : ""}`;
 }
 
 export function formatPollFooterLine(poll) {

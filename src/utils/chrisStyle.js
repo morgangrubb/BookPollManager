@@ -41,7 +41,7 @@ export function calculateChrisStyleWinner(candidates, votes) {
   let winner = null;
   let tie = false;
   let tiedNominations = [];
-  if (sortedResults.length > 0) {
+  if (sortedResults.length > 0 && votes.length > 0) {
     const topPoints = sortedResults[0].points;
     const tied = sortedResults.filter((r) => r.points === topPoints);
     if (tied.length === 1) {
