@@ -41,6 +41,18 @@ export const createPollCommand = {
         { name: "Chris Style (top 3 picks)", value: "chris-style" },
       ],
     },
+    {
+      name: "description",
+      description: "Description (optional)",
+      type: 3, // STRING
+      required: false,
+    },
+    {
+      name: "quote",
+      description: "Quote (optional, displayed when a user votes)",
+      type: 3, // STRING
+      required: false,
+    },
   ],
 };
 
@@ -50,6 +62,8 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
   const votingEnd = getOptionValue(options, "voting_end");
   const tallyMethod =
     getOptionValue(options, "tally_method") || "ranked-choice";
+  const description = getOptionValue(options, "description");
+  const quote = getOptionValue(options, "quote");
 
   if (!title || !nominationEnd || !votingEnd) {
     return createResponse({
@@ -92,6 +106,8 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
     tallyMethod,
     nominationEnd: nominationDeadline.toISOString(),
     votingEnd: votingDeadline.toISOString(),
+    description,
+    quote,
   };
 
   const poll = await pollManager.createPoll(pollData);
@@ -103,7 +119,9 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
         embeds: [
           {
             title: "📚 New Book Poll Created!",
-            description: `**${title}**\n\nNomination phase has started!`,
+            description: description
+              ? `**${title}**\n\n${description}\n\nNomination phase has started!`
+              : `**${title}**\n\nNomination phase has started!`,
             fields: [
               {
                 name: "📝 Nomination Deadline",

@@ -84,6 +84,14 @@ export function formatStatus(poll, { header } = {}) {
     timestamp: new Date().toISOString(),
   };
 
+  if (poll.description) {
+    embed.fields.push({
+      name: "Description",
+      value: poll.description,
+      inline: false,
+    });
+  }
+
   if (poll.phase === "completed" || poll.phase === "voting") {
     if (
       poll.phase === "completed" &&

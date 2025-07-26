@@ -173,7 +173,7 @@ export async function handleChrisStyleVoting(interaction, env, pollManager) {
       interaction.member?.user?.username || interaction.user?.username;
 
     return createResponse({
-      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b`,
+      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b${poll.quote ? `\n\u200b${poll.quote}\n\u200b` : ""}`,
       embeds: [formatStatus(poll)],
     });
   }
@@ -291,7 +291,7 @@ export async function handleChrisStyleSubmission(
       interaction.member?.user?.username || interaction.user?.username;
 
     return createResponse({
-      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b`,
+      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b${poll.quote ? `\n\u200b${poll.quote}\n\u200b` : ""}`,
       embeds: [formatStatus(poll)],
     });
   } catch (error) {

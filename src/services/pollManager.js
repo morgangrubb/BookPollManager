@@ -23,8 +23,8 @@ export class PollManager {
                 INSERT INTO polls (
                     id, title, guild_id, channel_id, creator_id,
                     phase, tally_method, nomination_deadline, voting_deadline,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at, description, quote
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
         )
         .bind(
@@ -39,6 +39,8 @@ export class PollManager {
           pollData.votingEnd || pollData.votingDeadline,
           now,
           now,
+          pollData.description || null,
+          pollData.quote || null,
         )
         .run();
 
@@ -56,7 +58,8 @@ export class PollManager {
         .prepare(
           `
                 SELECT id, title, guild_id, channel_id, creator_id, phase, tally_method,
-                       nomination_deadline, voting_deadline, created_at, updated_at, results_data
+                       nomination_deadline, voting_deadline, created_at, updated_at, results_data,
+                       description, quote
                 FROM polls WHERE id = ?
             `,
         )
@@ -114,6 +117,8 @@ export class PollManager {
         votingDeadline: pollResult.voting_deadline,
         createdAt: pollResult.created_at,
         updatedAt: pollResult.updated_at,
+        description: pollResult.description || null,
+        quote: pollResult.quote || null,
         nominations: [],
         votes: [],
         results: null,
@@ -277,6 +282,8 @@ export class PollManager {
       phase: "phase",
       results: "results_data",
       tallyMethod: "tally_method",
+      description: "description",
+      quote: "quote",
     };
     return fieldMap[field] || field;
   }
