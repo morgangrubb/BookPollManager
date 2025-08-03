@@ -1,9 +1,29 @@
 import { formatChrisStyleResults } from "./chrisStyle.js";
 import { formatRankedChoiceResults } from "./rankedChoice.js";
 
-export function formatNomination(nomination, { includeUser = true } = {}) {
+export function formatNomination(
+  nomination,
+  { includeUser = true, includeAuthor = true, includeLink = true } = {},
+) {
   if (!nomination) return "Invalid nomination";
-  return `[${nomination.title}${nomination.author ? ` by ${nomination.author}` : ""}](${nomination.link})${includeUser ? ` (${nomination.username})` : ""}`;
+
+  let text = "";
+
+  if (includeLink) {
+    text += `[${nomination.title}](${nomination.link})`;
+  } else {
+    text += nomination.title;
+  }
+
+  if (includeAuthor) {
+    text += nomination.author ? ` by ${nomination.author}` : "";
+  }
+
+  if (includeUser) {
+    text += ` (${nomination.username})`;
+  }
+
+  return text;
 }
 
 export function formatPollFooterLine(poll) {
@@ -11,12 +31,12 @@ export function formatPollFooterLine(poll) {
   return `Poll ID: ${poll.id}`;
 }
 
-export function formatNominations(poll) {
+export function formatNominations(poll, opts = {}) {
   let nominationsList = "";
 
   // Show in nomination order
   nominationsList = poll.nominations
-    .map((nom, idx) => `${idx + 1}. ${formatNomination(nom)}`)
+    .map((nom, idx) => `${idx + 1}. ${formatNomination(nom, opts)}`)
     .join("\n");
 
   return nominationsList;
@@ -71,8 +91,19 @@ export function formatResults(poll, opts = {}) {
 }
 
 export function formatStatus(poll, { header } = {}) {
+  let description = "";
+
+  if (poll.description) {
+    description = poll.description;
+  }
+
+  if (poll.nominations && poll.nominations.length > 0) {
+    description += `${description ? "\n\n" : ""}**📖 Nominations**\n${formatNominations(poll)}`;
+  }
+
   const embed = {
     title: `📚 ${poll.title}${header ? ` - ${header}` : ""}`,
+    description,
     color:
       poll.phase === "completed"
         ? 0x00ff00
@@ -83,14 +114,6 @@ export function formatStatus(poll, { header } = {}) {
     footer: { text: formatPollFooterLine(poll) },
     timestamp: new Date().toISOString(),
   };
-
-  if (poll.description) {
-    embed.fields.push({
-      name: "Description",
-      value: poll.description,
-      inline: false,
-    });
-  }
 
   if (poll.phase === "completed" || poll.phase === "voting") {
     if (
@@ -121,14 +144,6 @@ export function formatStatus(poll, { header } = {}) {
         inline: false,
       });
     }
-  }
-
-  if (poll.nominations && poll.nominations.length > 0) {
-    embed.fields.push({
-      name: "📖 Nominations",
-      value: formatNominations(poll),
-      inline: false,
-    });
   }
 
   return embed;

@@ -34,7 +34,7 @@ export async function handleVote({ interaction, poll, userId }) {
 
   // Check if user already voted
   const existingVote = (poll.votes || []).some(
-    (vote) => vote.userId === userId
+    (vote) => vote.userId === userId,
   );
 
   if (existingVote) {
@@ -48,7 +48,7 @@ export async function handleVote({ interaction, poll, userId }) {
   if (poll.tallyMethod === "chris-style") {
     return generateChrisStyleVotingInterface(
       poll,
-      interaction.member?.user?.id || interaction.user?.id
+      interaction.member?.user?.id || interaction.user?.id,
     );
   } else {
     return generateRankedChoiceVotingInterface(poll);

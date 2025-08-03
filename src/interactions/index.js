@@ -163,10 +163,6 @@ async function handleSelectMenuInteraction(interaction, env) {
 
 async function handleTieBreakInteraction(interaction, env) {
   const opts = await getPollAndStatus(interaction, env);
-  opts.poll = await opts.pollManager.getPoll(
-    interaction.data.custom_id.replace("tie_break_", ""),
-  );
-  opts.isPollCreator = isPollCreator(opts.poll, interaction.member.user.id);
   return await handleTieBreak(opts);
 }
 

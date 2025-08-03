@@ -316,9 +316,6 @@ export function generateChrisStyleVotingInterface(
   existingSelections = [],
   { update = false } = {},
 ) {
-  console.log("\n\nexistingSelections");
-  console.log(JSON.stringify(existingSelections));
-
   const components = [];
   const nominations = poll.nominations;
   const maxSelections = Math.min(3, nominations.length);
@@ -388,33 +385,41 @@ export function generateChrisStyleVotingInterface(
 export function formatChrisStyleResults(poll, { heading } = {}) {
   const results = poll.results;
 
-  let nominationsList = "";
+  let description;
 
-  // Each result in poll.results.standings should have at least: title, author, username, score
-  const sorted = [...poll.results.standings].sort(
-    (a, b) => (b.points ?? 0) - (a.points ?? 0),
-  );
-  nominationsList = sorted
-    .map(
-      (standing, idx) =>
-        `${idx + 1}. ${formatNomination(standing.nomination)} — **${standing.points ?? 0}** point${standing.points === 1 ? "" : "s"}`,
-    )
-    .join("\n");
+  if (results.tie) {
+    description = `**Tie** Run /poll tie-break to specify the winner`;
+  } else {
+    let nominationsList = "";
+
+    const sorted = [...poll.results.standings].sort(
+      (a, b) => (b.points ?? 0) - (a.points ?? 0),
+    );
+
+    // Now ensure that results.winner is first in the sorted list
+    const winnerIndex = sorted.findIndex(
+      (standing) => standing.nomination.id === results.winner.id,
+    );
+    if (winnerIndex !== -1) {
+      const [winner] = sorted.splice(winnerIndex, 1);
+      sorted.unshift(winner);
+    }
+
+    nominationsList = sorted
+      .map(
+        (standing, idx) =>
+          `${idx + 1}. ${formatNomination(standing.nomination)} — **${standing.points ?? 0}** point${standing.points === 1 ? "" : "s"}`,
+      )
+      .join("\n");
+
+    description = `**Winner**\n ${formatNomination(results.winner)}\n\n**Final standings**\n${nominationsList}`;
+  }
 
   const embed = {
     title: `${results.tie ? "❓" : "🏆"} ${poll.title} - ${heading || "Results"}`,
-    description: results.tie
-      ? `**Tie** Run /poll tie-break to specify the winner`
-      : `**Winner:** ${results.winner.title}${results.winner.author ? ` by ${results.winner.author}` : ""}`,
+    description,
     color: 0x00ff00,
-    fields: [
-      ...formatPollFields(poll),
-      {
-        name: "📊 Final Results",
-        value: nominationsList,
-        inline: false,
-      },
-    ],
+    fields: formatPollFields(poll),
     footer: { text: `Poll ID: ${poll.id}` },
     timestamp: new Date().toISOString(),
   };
