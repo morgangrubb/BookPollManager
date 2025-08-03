@@ -14,16 +14,10 @@ import { handlePollAnnounce } from "./announce.js";
 import { handlePollStatus } from "./status.js";
 import { handleRemoveNomination } from "./remove-nomination.js";
 import { handleTieBreak } from "./tie-break.js";
-import { handleVote, handleVoteButton, handleModalSubmit } from "./vote.js";
+import { handleVote } from "./vote.js";
 import { handleWithdrawNomination } from "./withdraw-nomination.js";
-import {
-  handleChrisStyleVoting,
-  handleChrisStyleSubmission,
-} from "../utils/chrisStyle.js";
-import {
-  handleRankedChoiceVoting,
-  handleRankedChoiceSubmission,
-} from "../utils/rankedChoice.js";
+import { handleChrisStyleVoting } from "../utils/chrisStyle.js";
+import { handleRankedChoiceVoting } from "../utils/rankedChoice.js";
 import { getPollAndStatus } from "../utils/discord/pollHelpers.js";
 
 const commandHandlers = {
@@ -74,7 +68,6 @@ export async function handleInteraction(interaction, env) {
       }),
     2: handleApplicationCommand,
     3: handleMessageComponent,
-    5: handleModalSubmitInteraction,
   };
 
   const handler = interactionHandlers[interaction.type];
@@ -99,8 +92,6 @@ async function handleApplicationCommand(interaction, env) {
 async function handleMessageComponent(interaction, env) {
   const customId = interaction.data.custom_id;
   const componentHandlers = {
-    submit_: handleButtonInteraction,
-    vote_: handleButtonInteraction,
     chris_vote_: handleSelectMenuInteraction,
     ranked_choice_: handleSelectMenuInteraction,
     tie_break_: handleTieBreakInteraction,
@@ -116,27 +107,6 @@ async function handleMessageComponent(interaction, env) {
     type: 4,
     data: {
       content: `Unknown component interaction: ${customId}`,
-      flags: 64,
-    },
-  });
-}
-
-async function handleButtonInteraction(interaction, env) {
-  const pollManager = new PollManager(env);
-  const customId = interaction.data.custom_id;
-
-  if (customId.startsWith("submit_chris_vote_")) {
-    return await handleChrisStyleSubmission(interaction, env, pollManager);
-  } else if (customId.startsWith("submit_ranked_vote_")) {
-    return await handleRankedChoiceSubmission(interaction, env, pollManager);
-  } else if (customId.startsWith("vote_")) {
-    return await handleVoteButton(interaction, env, pollManager);
-  }
-
-  return createResponse({
-    type: 4,
-    data: {
-      content: `❌ Unknown button interaction: ${customId}`,
       flags: 64,
     },
   });
@@ -164,18 +134,4 @@ async function handleSelectMenuInteraction(interaction, env) {
 async function handleTieBreakInteraction(interaction, env) {
   const opts = await getPollAndStatus(interaction, env);
   return await handleTieBreak(opts);
-}
-
-async function handleModalSubmitInteraction(interaction, env) {
-  const pollManager = new PollManager(env);
-  if (interaction.data.custom_id.startsWith("ranked_vote_")) {
-    return await handleRankedChoiceSubmission(interaction, env, pollManager);
-  }
-  return createResponse({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: {
-      content: "Unknown modal submission",
-      flags: 64,
-    },
-  });
 }
