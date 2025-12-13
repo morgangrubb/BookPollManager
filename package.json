@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "vitest",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "register-commands": "node src/deploy-commands.js",
+    "deploy": "npm run register-commands && wrangler deploy"
   },
   "keywords": [],
   "author": "",

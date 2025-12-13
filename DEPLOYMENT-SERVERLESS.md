@@ -63,25 +63,70 @@ wrangler secret put DISCORD_CLIENT_ID
 4. Set to: `https://your-worker.your-subdomain.workers.dev/interactions`
 5. Save changes
 
-### 5. Deploy
+### 5. Register Discord Commands
+
+Register slash commands with Discord before or after deployment.
+
+**Option A: Using .env File (Recommended)**
+
+1. Create a `.env` file in the project root:
 
 ```bash
-# Deploy to Cloudflare Workers
+DISCORD_TOKEN=your-bot-token
+DISCORD_CLIENT_ID=your-client-id
+DISCORD_GUILD_ID=your-guild-id  # Optional: for faster guild-specific registration
+```
+
+2. Run the registration command:
+
+```bash
+npm run register-commands
+```
+
+The script automatically loads environment variables from `.env` using the `dotenv` package.
+
+**Option B: Using Environment Variables**
+
+```bash
+export DISCORD_TOKEN="your-bot-token"
+export DISCORD_CLIENT_ID="your-client-id"
+export DISCORD_GUILD_ID="your-guild-id"  # Optional
+
+npm run register-commands
+```
+
+### 6. Deploy
+
+```bash
+# Option 1: Deploy and register commands in one step
+npm run deploy
+
+# Option 2: Deploy worker only (commands must be registered separately)
 wrangler deploy
 
 # View logs
 wrangler tail
 ```
 
+**Deployment Workflow**:
+- `npm run deploy` will automatically run `npm run register-commands` before deploying
+- Commands are registered directly with Discord API
+- Guild-specific commands update instantly; global commands take up to 1 hour
+
 ## Environment Variables
+
+### Configuration Methods
+
+**For Command Registration**: Use `.env` file or environment variables
+**For Worker Runtime**: Use `wrangler secret put` for sensitive values
 
 ### Required Variables
 
-| Variable | Description |
-|----------|-------------|
-| `DISCORD_TOKEN` | Bot token from Discord Developer Portal |
-| `DISCORD_PUBLIC_KEY` | Public key from Discord Developer Portal |
-| `DISCORD_CLIENT_ID` | Application ID from Discord Developer Portal |
+| Variable | Description | Method |
+|----------|-------------|--------|
+| `DISCORD_TOKEN` | Bot token from Discord Developer Portal | `.env` or `wrangler secret` |
+| `DISCORD_PUBLIC_KEY` | Public key from Discord Developer Portal | `wrangler secret` |
+| `DISCORD_CLIENT_ID` | Application ID from Discord Developer Portal | `.env` or `wrangler secret` |
 
 ### Firebase Variables (Priority Order)
 
@@ -95,6 +140,7 @@ wrangler tail
 | Variable | Description |
 |----------|-------------|
 | `ENVIRONMENT` | Set to "production" for deployment |
+| `DISCORD_GUILD_ID` | Guild ID for faster command registration (development) |
 
 ## Architecture Changes
 
@@ -143,6 +189,58 @@ User voting selections stored in D1 database:
 3. **Cost Effective**: Pay-per-request pricing
 4. **Global Distribution**: Low latency worldwide
 5. **High Availability**: Built-in redundancy
+
+## Command Registration
+
+### Registering Commands
+
+Discord slash commands must be registered with the Discord API:
+
+```bash
+# Register all commands (uses .env file if present)
+npm run register-commands
+```
+
+**Requirements**: 
+- `DISCORD_TOKEN` and `DISCORD_CLIENT_ID` must be set in `.env` file or environment
+- Optionally set `DISCORD_GUILD_ID` for faster guild-specific registration
+
+This will:
+1. Load environment variables from `.env` file (if present)
+2. Read command definitions from `src/commands/poll.js`
+3. Register them with Discord API
+4. Display confirmation with subcommand list
+
+### When to Register Commands
+
+- After adding new commands or subcommands
+- When changing command options or descriptions
+- After initial deployment
+- Optionally before each deployment (automatic with `npm run deploy`)
+
+### Global vs Guild Commands
+
+**Guild Commands** (faster, for development):
+```bash
+# Add to .env file:
+DISCORD_GUILD_ID=your-guild-id
+
+# Then run:
+npm run register-commands
+```
+- Updates instantly
+- Only available in specified server
+- Recommended for testing
+
+**Global Commands** (slower, for production):
+```bash
+# Remove or comment out DISCORD_GUILD_ID from .env file
+# Then run:
+npm run register-commands
+```
+- Takes up to 1 hour to propagate
+- Available in all servers with bot
+- Recommended for production
 
 ## Testing
 

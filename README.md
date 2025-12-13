@@ -5,6 +5,7 @@ A serverless Discord bot for managing book club polls with ranked choice voting,
 ## Features
 
 - **Poll Creation**: Create polls with nomination and voting phases
+- **Poll Extension**: Extend active or completed polls with force protection
 - **Voting Systems**: 
   - Ranked Choice (Instant Runoff Voting)
   - Chris Style (Top 3 with points: 3-2-1)
@@ -39,9 +40,68 @@ src/
 
 ## Quick Start
 
-1. Set up Cloudflare D1 database
-2. Configure Discord webhook
-3. Deploy to Cloudflare Workers
-4. Register slash commands
+### 1. Set up Environment Variables
 
-Full instructions in deployment documentation.
+Create a `.env` file in the project root:
+
+```env
+DISCORD_TOKEN=your-bot-token
+DISCORD_CLIENT_ID=your-client-id
+DISCORD_GUILD_ID=your-guild-id  # Optional: for faster registration
+```
+
+### 2. Register Discord Commands
+
+```bash
+# Register slash commands with Discord
+npm run register-commands
+```
+
+### 3. Set up Cloudflare D1 Database
+
+```bash
+# Create database
+wrangler d1 create discord-polls
+
+# Initialize schema
+wrangler d1 execute discord-polls --file=./src/schema/init.sql
+```
+
+### 4. Deploy to Cloudflare Workers
+
+```bash
+# Deploy and register commands in one step
+npm run deploy
+
+# Or deploy worker only
+wrangler deploy
+```
+
+Full instructions in [DEPLOYMENT-SERVERLESS.md](DEPLOYMENT-SERVERLESS.md).
+
+## Available Commands
+
+- `/poll create` - Create a new book poll
+- `/poll nominate` - Nominate a book
+- `/poll vote` - Vote in the active poll
+- `/poll extend [days] [poll_id] [force]` - Extend poll by 1-14 days (force required for completed polls)
+- `/poll status` - Check poll status
+- `/poll list` - List all polls
+- `/poll end-nominations` - Start voting phase early
+- `/poll end-voting` - Complete poll and show results
+- `/poll delete` - Delete a poll
+
+See [QUICK_START.md](QUICK_START.md) for complete command reference.
+
+## Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test
+npm test -- extend.test.js
+
+# Watch mode
+npm run test:watch
+```

@@ -1,7 +1,7 @@
 # Discord Command Registration Guide
 
 ## Overview
-Discord slash commands are automatically registered during Cloudflare Worker deployment. The system reads command definitions from `src/commands/poll.js` and registers them with Discord as part of the deployment process.
+Discord slash commands must be registered with the Discord API. The system reads command definitions from `src/commands/poll.js` and registers them with Discord.
 
 ## Prerequisites
 - Discord bot application created in Discord Developer Portal
@@ -9,34 +9,64 @@ Discord slash commands are automatically registered during Cloudflare Worker dep
 - Application ID (DISCORD_CLIENT_ID)
 - Optional: Guild ID for server-specific commands (faster updates)
 
-## Automatic Registration
+## Quick Start
 
-Commands are automatically registered during `wrangler deploy`:
+### Method 1: Using .env File (Recommended)
 
-1. Set your environment variables in Replit Secrets:
-   - `DISCORD_TOKEN` - Your bot token
-   - `DISCORD_CLIENT_ID` - Your application ID  
-   - `DISCORD_GUILD_ID` - Optional guild ID for faster registration
+1. Create a `.env` file in the project root:
 
-2. Deploy the worker:
-```bash
-wrangler deploy
+```env
+DISCORD_TOKEN=your-bot-token
+DISCORD_CLIENT_ID=your-client-id
+DISCORD_GUILD_ID=your-guild-id  # Optional: for faster guild-specific registration
 ```
 
-The build process will automatically:
+2. Run the registration command:
+
+```bash
+# Register commands (automatically loads from .env)
+npm run register-commands
+
+# Or deploy and register in one step
+npm run deploy
+```
+
+The script automatically loads environment variables from `.env` using the `dotenv` package.
+
+This will:
+- Load environment variables from `.env` file (if present)
 - Read command definitions from `src/commands/poll.js`
 - Register all commands with Discord API
-- Verify successful registration
-- Deploy the worker with updated commands
+- Display confirmation with subcommand list
+- (With `npm run deploy`) Deploy the worker after registration
 
-### Method 2: Manual Registration via Discord Developer Portal
+### Method 2: Using Environment Variables Directly
+
+```bash
+# Set environment variables
+export DISCORD_TOKEN="your-bot-token"
+export DISCORD_CLIENT_ID="your-client-id"
+export DISCORD_GUILD_ID="your-guild-id"  # Optional
+
+# Register commands
+npm run register-commands
+```
+
+### Method 3: Direct Script Execution
+
+```bash
+# Requires .env file or environment variables already set
+node src/deploy-commands.js
+```
+
+### Method 4: Manual Registration via Discord Developer Portal
 
 1. Go to https://discord.com/developers/applications
 2. Select your application
 3. Navigate to "Slash Commands" 
 4. Manually create the `/poll` command with the subcommands defined in `register-commands.js`
 
-### Method 3: Direct API Call
+### Method 5: Direct API Call
 
 ```bash
 curl -X PUT \

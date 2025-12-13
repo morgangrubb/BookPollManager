@@ -1,7 +1,11 @@
 // Deploy-time command registration for Cloudflare Workers
 // Reads commands from src/commands/poll.js and registers with Discord during deployment
 
-const { pollCommand } = require("./commands/poll.js");
+import { pollCommand } from "./commands/poll.js";
+import dotenv from "dotenv";
+
+// Load environment variables from .env file if it exists
+dotenv.config();
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
@@ -23,9 +27,7 @@ async function deployCommands() {
     : `https://discord.com/api/v10/applications/${CLIENT_ID}/commands`;
 
   try {
-    console.log(
-      "🚀 Deploying Discord slash commands during Worker deployment...",
-    );
+    console.log("🚀 Deploying Discord slash commands...");
 
     const response = await fetch(url, {
       method: "PUT",
@@ -38,13 +40,15 @@ async function deployCommands() {
 
     if (response.ok) {
       const data = await response.json();
-      console.log(`✅ Successfully deployed ${data.length} Discord commands`);
+      console.log(`✅ Successfully deployed ${data.length} Discord command(s)`);
       console.log(`📋 Commands: ${data.map((cmd) => cmd.name).join(", ")}`);
 
       // Log subcommands for verification
       if (data[0]?.options) {
         const subcommands = data[0].options.map((opt) => opt.name);
-        console.log(`🔧 Subcommands: ${subcommands.join(", ")}`);
+        console.log(
+          `🔧 Subcommands (${subcommands.length}): ${subcommands.join(", ")}`,
+        );
       }
     } else {
       const error = await response.text();
@@ -61,9 +65,5 @@ async function deployCommands() {
   }
 }
 
-// Only run if this file is executed directly (during deployment)
-if (require?.main === module) {
-  deployCommands();
-}
-
-module.exports = { deployCommands };
+// Run the deployment
+deployCommands();
