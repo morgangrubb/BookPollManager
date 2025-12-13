@@ -52,6 +52,11 @@ curl -X PUT \
 - `/poll nominate` - Nominate a book for the active poll
 - `/poll status` - Check the status of a poll and see nominations
 - `/poll list` - List all active polls in the server
+- `/poll extend [days] [poll_id] [force]` - Extend the current poll phase by 1-14 days (default: 1)
+  - When in nomination phase: extends both nomination and voting deadlines
+  - When in voting phase: extends only voting deadline and clears any calculated results
+  - When in completed phase: requires `force: true` to reopen poll to voting phase and extend
+  - Requires admin or poll creator permissions
 
 ## Verification
 

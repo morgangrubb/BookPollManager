@@ -284,6 +284,8 @@ export class PollManager {
       tallyMethod: "tally_method",
       description: "description",
       quote: "quote",
+      nominationDeadline: "nomination_deadline",
+      votingDeadline: "voting_deadline",
     };
     return fieldMap[field] || field;
   }

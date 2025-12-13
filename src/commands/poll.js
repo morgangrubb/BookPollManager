@@ -11,6 +11,7 @@ import { tieBreakCommand } from "../interactions/tie-break.js";
 import { endNominationsCommand } from "../interactions/end-nominations.js";
 import { endVotingCommand } from "../interactions/end-voting.js";
 import { deletePollCommand } from "../interactions/delete.js";
+import { extendCommand } from "../interactions/extend.js";
 
 export const pollCommand = {
   data: {
@@ -30,6 +31,7 @@ export const pollCommand = {
       endNominationsCommand,
       endVotingCommand,
       deletePollCommand,
+      extendCommand,
     ],
   },
 };

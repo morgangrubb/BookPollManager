@@ -16,6 +16,7 @@ import { handleRemoveNomination } from "./remove-nomination.js";
 import { handleTieBreak } from "./tie-break.js";
 import { handleVote } from "./vote.js";
 import { handleWithdrawNomination } from "./withdraw-nomination.js";
+import { handlePollExtend } from "./extend.js";
 import { handleChrisStyleVoting } from "../utils/chrisStyle.js";
 import { handleRankedChoiceVoting } from "../utils/rankedChoice.js";
 import { getPollAndStatus } from "../utils/discord/pollHelpers.js";
@@ -26,6 +27,7 @@ const commandHandlers = {
   "edit-nomination": handleEditNomination,
   "end-nominations": handleEndNominations,
   "end-voting": handleEndVoting,
+  extend: handlePollExtend,
   list: handleListPolls,
   nominate: handleNominate,
   announce: handlePollAnnounce,
