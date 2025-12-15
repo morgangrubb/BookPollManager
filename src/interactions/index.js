@@ -17,6 +17,7 @@ import { handleTieBreak } from "./tie-break.js";
 import { handleVote } from "./vote.js";
 import { handleWithdrawNomination } from "./withdraw-nomination.js";
 import { handlePollExtend } from "./extend.js";
+import { handleAddVote } from "./add-vote.js";
 import { handleChrisStyleVoting } from "../utils/chrisStyle.js";
 import { handleRankedChoiceVoting } from "../utils/rankedChoice.js";
 import { getPollAndStatus } from "../utils/discord/pollHelpers.js";
@@ -28,6 +29,7 @@ const commandHandlers = {
   "end-nominations": handleEndNominations,
   "end-voting": handleEndVoting,
   extend: handlePollExtend,
+  "add-vote": handleAddVote,
   list: handleListPolls,
   nominate: handleNominate,
   announce: handlePollAnnounce,

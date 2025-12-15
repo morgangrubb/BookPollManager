@@ -84,6 +84,7 @@ Full instructions in [DEPLOYMENT-SERVERLESS.md](DEPLOYMENT-SERVERLESS.md).
 - `/poll create` - Create a new book poll
 - `/poll nominate` - Nominate a book
 - `/poll vote` - Vote in the active poll
+- `/poll add-vote` - Add a vote on behalf of someone else (admin/creator only)
 - `/poll extend [days] [poll_id] [force]` - Extend poll by 1-14 days (force required for completed polls)
 - `/poll status` - Check poll status
 - `/poll list` - List all polls

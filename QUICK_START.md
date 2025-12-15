@@ -53,6 +53,7 @@ wrangler deploy
 | `/poll create` | Create a new book poll with nomination and voting deadlines |
 | `/poll nominate` | Nominate a book for the active poll |
 | `/poll vote` | Vote in the active poll |
+| `/poll add-vote` | Add a vote on behalf of someone else (admin/creator only) |
 | `/poll status` | Check the status of a poll and see nominations |
 | `/poll announce` | Announce the poll status to the channel |
 | `/poll list` | List all polls in the server |
@@ -64,6 +65,31 @@ wrangler deploy
 | `/poll end-voting` | End voting phase and show results (admin/creator only) |
 | `/poll tie-break` | Resolve a tie by selecting a winner (admin/creator only) |
 | `/poll delete` | Delete a poll (admin/creator only) |
+
+## Add-Vote Command Details
+
+The `/poll add-vote` command allows admins/creators to submit votes on behalf of others:
+
+- **`username`** (required): Name of the person voting (used as unique identifier)
+- **`rankings`** (required): Comma-separated nomination numbers
+  - Chris-style: "1,3,2" (exactly 3 picks)
+  - Ranked-choice: "2,1,3,4" (all nominations ranked)
+- **`poll_id`** (optional): Specific poll ID, defaults to most recent poll
+- **`force`** (optional): Required to add votes to completed polls
+
+### Examples
+
+```
+/poll add-vote username:"John Doe" rankings:"1,3,2"              → Chris-style vote
+/poll add-vote username:"Jane Smith" rankings:"2,1,3,4"          → Ranked-choice vote
+/poll add-vote username:"Bob" rankings:"1,2,3" force:true        → Add to completed poll
+```
+
+### Notes
+
+- Each username can only vote once per poll
+- Votes are stored with prefix `manual_username` to distinguish from Discord users
+- Adding votes to completed polls with `force:true` reopens them to voting phase
 
 ## Extend Command Details
 

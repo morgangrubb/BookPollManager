@@ -5,6 +5,7 @@ import { nominateCommand } from "../interactions/nominate.js";
 import { listCommand } from "../interactions/list.js";
 import { withdrawNominationCommand } from "../interactions/withdraw-nomination.js";
 import { voteCommand } from "../interactions/vote.js";
+import { addVoteCommand } from "../interactions/add-vote.js";
 import { removeNominationCommand } from "../interactions/remove-nomination.js";
 import { editNominationCommand } from "../interactions/edit-nomination.js";
 import { tieBreakCommand } from "../interactions/tie-break.js";
@@ -25,6 +26,7 @@ export const pollCommand = {
       listCommand,
       withdrawNominationCommand,
       voteCommand,
+      addVoteCommand,
       removeNominationCommand,
       editNominationCommand,
       tieBreakCommand,

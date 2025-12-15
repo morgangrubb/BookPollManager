@@ -82,6 +82,13 @@ curl -X PUT \
 - `/poll nominate` - Nominate a book for the active poll
 - `/poll status` - Check the status of a poll and see nominations
 - `/poll list` - List all active polls in the server
+- `/poll vote` - Vote in the active poll
+- `/poll add-vote username rankings [poll_id] [force]` - Add a vote on behalf of someone else (admin/creator only)
+  - `username`: Name of the person voting (used as identifier)
+  - `rankings`: Comma-separated nomination numbers (e.g., "1,3,2" for chris-style or "2,1,3,4" for ranked-choice)
+  - `poll_id`: Optional poll ID, defaults to most recent
+  - `force`: Required to add votes to completed polls (reopens and recalculates results)
+  - Requires admin or poll creator permissions
 - `/poll extend [days] [poll_id] [force]` - Extend the current poll phase by 1-14 days (default: 1)
   - When in nomination phase: extends both nomination and voting deadlines
   - When in voting phase: extends only voting deadline and clears any calculated results
