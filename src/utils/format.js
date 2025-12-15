@@ -97,6 +97,13 @@ export function formatStatus(poll, { header } = {}) {
     description = poll.description;
   }
 
+  // Add phase-specific instructions
+  if (poll.phase === "nomination") {
+    description += `${description ? "\n\n" : ""}💡 **Use \`/poll nominate\` to nominate a book!**`;
+  } else if (poll.phase === "voting") {
+    description += `${description ? "\n\n" : ""}💡 **Use \`/poll vote\` to cast your vote!**`;
+  }
+
   if (poll.nominations && poll.nominations.length > 0) {
     description += `${description ? "\n\n" : ""}**📖 Nominations**\n${formatNominations(poll)}`;
   }
