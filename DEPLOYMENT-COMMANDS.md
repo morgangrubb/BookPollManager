@@ -80,7 +80,8 @@ curl -X PUT \
 
 - `/poll create` - Create a new book poll with nomination and voting deadlines
 - `/poll nominate` - Nominate a book for the active poll
-- `/poll status` - Check the status of a poll and see nominations
+- `/poll status [nominations]` - Check the status of a poll and see nominations
+  - `nominations`: Optional flag to show nominations with index numbers for commands like `/poll add-vote`
 - `/poll list` - List all active polls in the server
 - `/poll vote` - Vote in the active poll
 - `/poll add-vote username rankings [poll_id] [force]` - Add a vote on behalf of someone else (admin/creator only)

@@ -14,10 +14,17 @@ export const statusCommand = {
       type: 3, // STRING
       required: false,
     },
+    {
+      name: "nominations",
+      description:
+        "Show nominations with index numbers for commands like add-vote",
+      type: 5, // BOOLEAN
+      required: false,
+    },
   ],
 };
 
-export async function handlePollStatus({ poll }) {
+export async function handlePollStatus({ poll, options }) {
   if (!poll) {
     return createResponse({
       ephemeral: true,
@@ -25,12 +32,16 @@ export async function handlePollStatus({ poll }) {
     });
   }
 
+  // Check if nominations flag is set
+  const showNominations =
+    options?.find((opt) => opt.name === "nominations")?.value || false;
+
   let embed;
 
   if (poll.phase === "completed") {
-    embed = formatResults(poll);
+    embed = formatResults(poll, { showIndexedNominations: showNominations });
   } else {
-    embed = formatStatus(poll);
+    embed = formatStatus(poll, { showIndexedNominations: showNominations });
   }
 
   return createResponse({

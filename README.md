@@ -86,7 +86,7 @@ Full instructions in [DEPLOYMENT-SERVERLESS.md](DEPLOYMENT-SERVERLESS.md).
 - `/poll vote` - Vote in the active poll
 - `/poll add-vote` - Add a vote on behalf of someone else (admin/creator only)
 - `/poll extend [days] [poll_id] [force]` - Extend poll by 1-14 days (force required for completed polls)
-- `/poll status` - Check poll status
+- `/poll status [nominations]` - Check poll status (use `nominations:true` to show index numbers for `/poll add-vote`)
 - `/poll list` - List all polls
 - `/poll end-nominations` - Start voting phase early
 - `/poll end-voting` - Complete poll and show results

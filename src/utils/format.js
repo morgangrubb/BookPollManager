@@ -90,7 +90,10 @@ export function formatResults(poll, opts = {}) {
   }
 }
 
-export function formatStatus(poll, { header } = {}) {
+export function formatStatus(
+  poll,
+  { header, showIndexedNominations = false } = {},
+) {
   let description = "";
 
   if (poll.description) {
@@ -105,7 +108,33 @@ export function formatStatus(poll, { header } = {}) {
   }
 
   if (poll.nominations && poll.nominations.length > 0) {
-    description += `${description ? "\n\n" : ""}**📖 Nominations**\n${formatNominations(poll)}`;
+    if (showIndexedNominations) {
+      // Show nominations with index numbers for commands like add-vote
+      const indexedList = poll.nominations
+        .map((nom, idx) => {
+          const number = idx + 1;
+          let line = `**${number}.** `;
+
+          if (nom.link) {
+            line += `[${nom.title}](${nom.link})`;
+          } else {
+            line += nom.title;
+          }
+
+          if (nom.author) {
+            line += ` by ${nom.author}`;
+          }
+
+          line += ` (${nom.username})`;
+
+          return line;
+        })
+        .join("\n");
+
+      description += `${description ? "\n\n" : ""}**📖 Nominations** _(Index numbers for \`/poll add-vote\`)_\n${indexedList}`;
+    } else {
+      description += `${description ? "\n\n" : ""}**📖 Nominations**\n${formatNominations(poll)}`;
+    }
   }
 
   const embed = {

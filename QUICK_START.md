@@ -54,7 +54,7 @@ wrangler deploy
 | `/poll nominate` | Nominate a book for the active poll |
 | `/poll vote` | Vote in the active poll |
 | `/poll add-vote` | Add a vote on behalf of someone else (admin/creator only) |
-| `/poll status` | Check the status of a poll and see nominations |
+| `/poll status [nominations]` | Check the status of a poll and see nominations |
 | `/poll announce` | Announce the poll status to the channel |
 | `/poll list` | List all polls in the server |
 | `/poll extend [days] [poll_id] [force]` | Extend the current poll phase by 1-14 days |
@@ -111,7 +111,36 @@ The `/poll extend` command allows extending poll deadlines:
 /poll extend                          → Extend by 1 day
 /poll extend days:7                   → Extend by 7 days
 /poll extend days:3 poll_id:abc123    → Extend specific poll by 3 days
-/poll extend days:2 force:true        → Reopen completed poll (requires force)
+/poll extend days:2 force:true        → Reopen completed poll (force required)
+```
+
+## Status Command with Nominations Flag
+
+The `/poll status` command has an optional `nominations` flag:
+
+- **`nominations`** (optional): When set to `true`, shows nominations with index numbers
+
+### Examples
+
+```
+/poll status                          → Regular status view
+/poll status nominations:true         → Shows index numbers for use with add-vote
+```
+
+**With `nominations:true`:**
+```
+📖 Nominations (Index numbers for `/poll add-vote`)
+**1.** [Book Title 1](link) by Author 1 (user1)
+**2.** [Book Title 2](link) by Author 2 (user2)
+**3.** [Book Title 3](link) by Author 3 (user3)
+```
+
+**Without flag (default):**
+```
+📖 Nominations
+1. [Book Title 1](link) by Author 1 (user1)
+2. [Book Title 2](link) by Author 2 (user2)
+3. [Book Title 3](link) by Author 3 (user3)
 ```
 
 ## Testing
