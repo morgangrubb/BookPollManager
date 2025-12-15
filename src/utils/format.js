@@ -83,7 +83,9 @@ export function formatPollFields(poll) {
 }
 
 export function formatResults(poll, opts = {}) {
-  if (poll.tallyMethod === "chris-style") {
+  if (opts.showIndexedNominations) {
+    return formatStatus(poll, opts);
+  } else if (poll.tallyMethod === "chris-style") {
     return formatChrisStyleResults(poll, opts);
   } else if (poll.tallyMethod === "ranked-choice") {
     return formatRankedChoiceResults(poll, opts);

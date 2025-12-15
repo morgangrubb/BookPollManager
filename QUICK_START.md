@@ -85,8 +85,16 @@ The `/poll add-vote` command allows admins/creators to submit votes on behalf of
 /poll add-vote username:"Bob" rankings:"1,2,3" force:true        → Add to completed poll
 ```
 
+**Response (public):**
+```
+✅ Admin added a vote on behalf of another user.
+
+**Total Votes:** 8
+```
+
 ### Notes
 
+- **Privacy**: The channel message does not reveal voter name or rankings
 - Each username can only vote once per poll
 - Votes are stored with prefix `manual_username` to distinguish from Discord users
 - Adding votes to completed polls with `force:true` reopens them to voting phase

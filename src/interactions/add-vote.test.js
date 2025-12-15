@@ -68,10 +68,13 @@ describe("handleAddVote", () => {
     );
 
     const response = await result.json();
-    expect(response.data.content).toContain('Vote successfully added for "John Doe"');
-    expect(response.data.content).toContain("1st: Book 1");
-    expect(response.data.content).toContain("2nd: Book 3");
-    expect(response.data.content).toContain("3rd: Book 2");
+    expect(response.data.content).toContain(
+      "added a vote on behalf of another user",
+    );
+    expect(response.data.content).toContain("**Total Votes:** 1");
+    expect(response.data.content).not.toContain("John Doe");
+    expect(response.data.content).not.toContain("1st:");
+    expect(response.data.content).not.toContain("Book 1");
     expect(response.data.flags).toBe(0); // Not ephemeral
   });
 
@@ -115,10 +118,12 @@ describe("handleAddVote", () => {
     );
 
     const response = await result.json();
-    expect(response.data.content).toContain('Vote successfully added for "Jane Smith"');
-    expect(response.data.content).toContain("#1: Book 2");
-    expect(response.data.content).toContain("#2: Book 1");
-    expect(response.data.content).toContain("#3: Book 3");
+    expect(response.data.content).toContain(
+      "added a vote on behalf of another user",
+    );
+    expect(response.data.content).toContain("**Total Votes:** 1");
+    expect(response.data.content).not.toContain("Jane Smith");
+    expect(response.data.content).not.toContain("#1: Book 2");
   });
 
   it("should deny adding vote if user is not admin or creator", async () => {
@@ -179,7 +184,9 @@ describe("handleAddVote", () => {
     expect(mockPollManager.submitVote).not.toHaveBeenCalled();
 
     const response = await result.json();
-    expect(response.data.content).toContain("Cannot add votes during the nomination phase");
+    expect(response.data.content).toContain(
+      "Cannot add votes during the nomination phase",
+    );
     expect(response.data.flags).toBe(64);
   });
 
@@ -213,7 +220,9 @@ describe("handleAddVote", () => {
     expect(mockPollManager.submitVote).not.toHaveBeenCalled();
 
     const response = await result.json();
-    expect(response.data.content).toContain("Cannot add votes to a completed poll");
+    expect(response.data.content).toContain(
+      "Cannot add votes to a completed poll",
+    );
     expect(response.data.content).toContain("force: true");
     expect(response.data.flags).toBe(64);
   });
@@ -266,8 +275,11 @@ describe("handleAddVote", () => {
     );
 
     const response = await result.json();
-    expect(response.data.content).toContain("Vote added");
-    expect(response.data.content).toContain("reopened");
+    expect(response.data.content).toContain(
+      "added a vote on behalf of another user",
+    );
+    expect(response.data.content).toContain("recalculated the results");
+    expect(response.data.content).not.toContain("John Doe");
   });
 
   it("should reject invalid number of picks for chris-style", async () => {
@@ -300,7 +312,9 @@ describe("handleAddVote", () => {
     expect(mockPollManager.submitVote).not.toHaveBeenCalled();
 
     const response = await result.json();
-    expect(response.data.content).toContain("Chris-style voting requires exactly 3 picks");
+    expect(response.data.content).toContain(
+      "Chris-style voting requires exactly 3 picks",
+    );
     expect(response.data.flags).toBe(64);
   });
 
@@ -335,7 +349,9 @@ describe("handleAddVote", () => {
     expect(mockPollManager.submitVote).not.toHaveBeenCalled();
 
     const response = await result.json();
-    expect(response.data.content).toContain("Ranked-choice voting requires ranking all 4 nominations");
+    expect(response.data.content).toContain(
+      "Ranked-choice voting requires ranking all 4 nominations",
+    );
     expect(response.data.flags).toBe(64);
   });
 
@@ -403,7 +419,9 @@ describe("handleAddVote", () => {
     expect(mockPollManager.submitVote).not.toHaveBeenCalled();
 
     const response = await result.json();
-    expect(response.data.content).toContain("Cannot vote for the same nomination multiple times");
+    expect(response.data.content).toContain(
+      "Cannot vote for the same nomination multiple times",
+    );
     expect(response.data.flags).toBe(64);
   });
 
@@ -437,7 +455,9 @@ describe("handleAddVote", () => {
     expect(mockPollManager.submitVote).not.toHaveBeenCalled();
 
     const response = await result.json();
-    expect(response.data.content).toContain('A vote for "John Doe" has already been recorded');
+    expect(response.data.content).toContain(
+      'A vote for "John Doe" has already been recorded',
+    );
     expect(response.data.flags).toBe(64);
   });
 

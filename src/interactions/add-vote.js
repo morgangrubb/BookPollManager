@@ -15,13 +15,15 @@ export const addVoteCommand = {
     },
     {
       name: "rankings",
-      description: "Comma-separated nomination numbers (e.g., '1,3,2' for chris-style or '2,1,3,4' for ranked-choice)",
+      description:
+        "Comma-separated nomination numbers (e.g., '1,3,2' for chris-style or '2,1,3,4' for ranked-choice)",
       type: 3, // STRING
       required: true,
     },
     {
       name: "poll_id",
-      description: "Poll ID (optional, will use most recent poll if not provided)",
+      description:
+        "Poll ID (optional, will use most recent poll if not provided)",
       type: 3, // STRING
       required: false,
     },
@@ -46,7 +48,8 @@ export async function handleAddVote({
   if (!isAdmin && !isPollCreator) {
     return createResponse({
       ephemeral: true,
-      content: "Only admins or the poll creator can add votes on behalf of others.",
+      content:
+        "Only admins or the poll creator can add votes on behalf of others.",
     });
   }
 
@@ -66,14 +69,16 @@ export async function handleAddVote({
   if (poll.phase === "nomination") {
     return createResponse({
       ephemeral: true,
-      content: "Cannot add votes during the nomination phase. Wait for voting to start.",
+      content:
+        "Cannot add votes during the nomination phase. Wait for voting to start.",
     });
   }
 
   if (poll.phase === "completed" && !force) {
     return createResponse({
       ephemeral: true,
-      content: "Cannot add votes to a completed poll. Use `force: true` to reopen and recalculate results.",
+      content:
+        "Cannot add votes to a completed poll. Use `force: true` to reopen and recalculate results.",
     });
   }
 
@@ -159,20 +164,16 @@ export async function handleAddVote({
     // Get updated poll
     const updatedPoll = await pollManager.getPoll(poll.id);
 
-    // Build response message
-    const nominationsList = rankings
-      .map((idx, rank) => {
-        const nom = poll.nominations[idx];
-        const position = poll.tallyMethod === "chris-style"
-          ? ["1st", "2nd", "3rd"][rank]
-          : `#${rank + 1}`;
-        return `${position}: ${nom.title}${nom.author ? ` by ${nom.author}` : ""}`;
-      })
-      .join("\n");
+    // Build generic response message without revealing voter identity or rankings
+    const adminName =
+      interaction.member?.user?.username ||
+      interaction.user?.username ||
+      "Admin";
 
-    const message = poll.phase === "completed"
-      ? `✅ Vote added for "${username}" and poll reopened for recalculation.\n\n**Rankings:**\n${nominationsList}\n\n**Total Votes:** ${updatedPoll.votes.length}`
-      : `✅ Vote successfully added for "${username}".\n\n**Rankings:**\n${nominationsList}\n\n**Total Votes:** ${updatedPoll.votes.length}`;
+    const message =
+      poll.phase === "completed"
+        ? `✅ ${adminName} added a vote on behalf of another user and recalculated the results.\n\n**Total Votes:** ${updatedPoll.votes.length}`
+        : `✅ ${adminName} added a vote on behalf of another user.\n\n**Total Votes:** ${updatedPoll.votes.length}`;
 
     return createResponse({
       ephemeral: false,
