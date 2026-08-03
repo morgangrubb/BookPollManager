@@ -4,6 +4,7 @@ import { PollManager } from "./services/pollManager.js";
 import { checkPollPhases } from "./services/scheduler.js";
 import { handleInteraction } from "./interactions/index.js";
 import { verifyDiscordSignature } from "./utils/discord/verifySignature.js";
+import { renderProvisionalScoresPage } from "./utils/provisionalScores.js";
 
 // Cron handler for poll phase transitions
 async function handleCron(event, env, ctx) {
@@ -41,6 +42,28 @@ export default {
             headers: { "Content-Type": "application/json" },
           },
         );
+      }
+
+      // Hidden page showing provisional scores for the currently active poll.
+      // Not linked anywhere - access is gated by a secret token so a leaked
+      // URL without the token doesn't expose in-progress vote standings.
+      if (url.pathname === "/provisional-scores" && request.method === "GET") {
+        const token = url.searchParams.get("token");
+        if (!env.SCORES_PAGE_TOKEN || token !== env.SCORES_PAGE_TOKEN) {
+          return new Response("Not Found", { status: 404 });
+        }
+
+        const pollManager = new PollManager(env);
+        const activePolls = await pollManager.getActivePolls();
+        const poll =
+          activePolls.length > 0
+            ? await pollManager.getPoll(activePolls[0].id)
+            : null;
+
+        return new Response(renderProvisionalScoresPage(poll), {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
       }
 
       // Discord interactions endpoint
