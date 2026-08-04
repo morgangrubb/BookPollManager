@@ -1,5 +1,6 @@
 // src/interactions/end-nominations.js
 import { createResponse } from "../utils/createResponse.js";
+import { runInBackground } from "../utils/backgroundTask.js";
 
 export const endNominationsCommand = {
   name: "end-nominations",
@@ -21,6 +22,7 @@ export async function handleEndNominations({
   poll,
   isAdmin,
   isPollCreator,
+  ctx,
 }) {
   if (!isAdmin && !isPollCreator) {
     return createResponse({
@@ -46,7 +48,14 @@ export async function handleEndNominations({
         const { announceVotingPhase } = await import(
           "../services/scheduler.js"
         );
-        await announceVotingPhase(updatedPoll, pollManager.env);
+        runInBackground(
+          ctx,
+          Promise.resolve(
+            announceVotingPhase(updatedPoll, pollManager.env),
+          ).catch((error) => {
+            console.error("Failed to announce voting phase:", error);
+          })
+        );
       } catch (error) {
         console.error("Failed to announce voting phase:", error);
       }

@@ -127,6 +127,7 @@ export async function announceVotingPhase(poll, env) {
       poll.channelId,
       { embeds: [embed], components },
       env,
+      { guildId: poll.guildId },
     );
   } catch (error) {
     console.error("Error announcing voting phase:", error);
@@ -145,7 +146,7 @@ export async function announcePollCompletion(poll, env) {
         ? createChrisStyleResultsEmbed(poll, poll.results)
         : createRankedChoiceResultsEmbed(poll, poll.results);
 
-    await sendDiscordMessage(poll.channelId, { embeds: [embed] }, env);
+    await sendDiscordMessage(poll.channelId, { embeds: [embed] }, env, { guildId: poll.guildId });
   } catch (error) {
     console.error("Error announcing poll completion:", error);
   }

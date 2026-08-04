@@ -23,6 +23,21 @@ export default {
     try {
       const url = new URL(request.url);
 
+      // Invite link endpoint - redirects to Discord OAuth bot invite URL
+      if (url.pathname === "/invite" && request.method === "GET") {
+        const clientId = env.DISCORD_CLIENT_ID;
+        if (!clientId) {
+          return new Response("DISCORD_CLIENT_ID not configured", { status: 500 });
+        }
+        const permissions = "84992"; // VIEW_CHANNEL + SEND_MESSAGES + EMBED_LINKS + READ_MESSAGE_HISTORY
+        const inviteUrl =
+          `https://discord.com/api/oauth2/authorize` +
+          `?client_id=${clientId}` +
+          `&permissions=${permissions}` +
+          `&scope=bot%20applications.commands`;
+        return Response.redirect(inviteUrl, 302);
+      }
+
       // Health check endpoint
       if (url.pathname === "/health" && request.method === "GET") {
         return new Response(
@@ -87,7 +102,7 @@ export default {
           }
 
           const interaction = JSON.parse(body);
-          return await handleInteraction(interaction, env);
+          return await handleInteraction(interaction, env, ctx);
         } catch (parseError) {
           console.error("Parse error:", parseError);
           return new Response("Bad request", { status: 400 });

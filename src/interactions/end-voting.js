@@ -1,6 +1,7 @@
 // src/interactions/end-voting.js
 import { createResponse } from "../utils/createResponse.js";
 import { formatResults } from "../utils/format.js";
+import { runInBackground } from "../utils/backgroundTask.js";
 
 export const endVotingCommand = {
   name: "end-voting",
@@ -22,6 +23,7 @@ export async function handleEndVoting({
   poll,
   isAdmin,
   isPollCreator,
+  ctx,
 }) {
   if (!poll) {
     return createResponse({ ephemeral: true, content: "Poll not found." });
@@ -63,7 +65,14 @@ export async function handleEndVoting({
         const { announcePollCompletion } = await import(
           "../services/scheduler.js"
         );
-        await announcePollCompletion(updatedPoll, pollManager.env);
+        runInBackground(
+          ctx,
+          Promise.resolve(
+            announcePollCompletion(updatedPoll, pollManager.env),
+          ).catch((error) => {
+            console.error("Failed to announce poll completion:", error);
+          })
+        );
       } catch (error) {
         console.error("Failed to announce poll completion:", error);
       }

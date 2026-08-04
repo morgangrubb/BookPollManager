@@ -18,6 +18,7 @@ import { handleVote } from "./vote.js";
 import { handleWithdrawNomination } from "./withdraw-nomination.js";
 import { handlePollExtend } from "./extend.js";
 import { handleAddVote } from "./add-vote.js";
+import { handleTestOob } from "./test-oob.js";
 import { handleChrisStyleVoting } from "../utils/chrisStyle.js";
 import { handleRankedChoiceVoting } from "../utils/rankedChoice.js";
 import { getPollAndStatus } from "../utils/discord/pollHelpers.js";
@@ -30,6 +31,7 @@ const commandHandlers = {
   "end-voting": handleEndVoting,
   extend: handlePollExtend,
   "add-vote": handleAddVote,
+  "test-oob": handleTestOob,
   list: handleListPolls,
   nominate: handleNominate,
   announce: handlePollAnnounce,
@@ -40,13 +42,13 @@ const commandHandlers = {
   "withdraw-nomination": handleWithdrawNomination,
 };
 
-export async function handlePollCommand(interaction, env) {
+export async function handlePollCommand(interaction, env, ctx) {
   const subcommand = interaction.data.options?.[0]?.name;
   const handler = commandHandlers[subcommand];
 
   if (handler) {
     try {
-      const opts = await getPollAndStatus(interaction, env);
+      const opts = await getPollAndStatus(interaction, env, ctx);
       return await handler(opts);
     } catch (error) {
       console.error(`Error handling subcommand "${subcommand}":`, error);
@@ -63,7 +65,7 @@ export async function handlePollCommand(interaction, env) {
   }
 }
 
-export async function handleInteraction(interaction, env) {
+export async function handleInteraction(interaction, env, ctx) {
   const interactionHandlers = {
     1: () =>
       new Response(JSON.stringify({ type: 1 }), {
@@ -76,16 +78,16 @@ export async function handleInteraction(interaction, env) {
 
   const handler = interactionHandlers[interaction.type];
   return handler
-    ? handler(interaction, env)
+    ? handler(interaction, env, ctx)
     : createResponse({
         ephemeral: true,
         content: "Interaction received!",
       });
 }
 
-async function handleApplicationCommand(interaction, env) {
+async function handleApplicationCommand(interaction, env, ctx) {
   if (interaction.data.name === "poll") {
-    return await handlePollCommand(interaction, env);
+    return await handlePollCommand(interaction, env, ctx);
   }
   return createResponse({
     ephemeral: true,
@@ -93,7 +95,7 @@ async function handleApplicationCommand(interaction, env) {
   });
 }
 
-async function handleMessageComponent(interaction, env) {
+async function handleMessageComponent(interaction, env, ctx) {
   const customId = interaction.data.custom_id;
   const componentHandlers = {
     chris_vote_: handleSelectMenuInteraction,
@@ -103,7 +105,7 @@ async function handleMessageComponent(interaction, env) {
 
   for (const prefix in componentHandlers) {
     if (customId.startsWith(prefix)) {
-      return await componentHandlers[prefix](interaction, env);
+      return await componentHandlers[prefix](interaction, env, ctx);
     }
   }
 
@@ -116,14 +118,14 @@ async function handleMessageComponent(interaction, env) {
   });
 }
 
-async function handleSelectMenuInteraction(interaction, env) {
+async function handleSelectMenuInteraction(interaction, env, ctx) {
   const pollManager = new PollManager(env);
   const customId = interaction.data.custom_id;
 
   if (customId.startsWith("chris_vote_")) {
-    return await handleChrisStyleVoting(interaction, env, pollManager);
+    return await handleChrisStyleVoting(interaction, env, pollManager, ctx);
   } else if (customId.startsWith("ranked_choice_")) {
-    return await handleRankedChoiceVoting(interaction, env, pollManager);
+    return await handleRankedChoiceVoting(interaction, env, pollManager, ctx);
   }
 
   return createResponse({
@@ -135,7 +137,7 @@ async function handleSelectMenuInteraction(interaction, env) {
   });
 }
 
-async function handleTieBreakInteraction(interaction, env) {
-  const opts = await getPollAndStatus(interaction, env);
+async function handleTieBreakInteraction(interaction, env, ctx) {
+  const opts = await getPollAndStatus(interaction, env, ctx);
   return await handleTieBreak(opts);
 }

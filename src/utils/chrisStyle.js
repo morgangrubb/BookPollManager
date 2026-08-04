@@ -1,5 +1,7 @@
 import { InteractionResponseType } from "discord-interactions";
 import { sendDiscordMessage } from "./sendDiscordMessage.js";
+import { sendDiscordDm } from "./sendDiscordDm.js";
+import { runInBackground } from "./backgroundTask.js";
 import { formatNomination, formatPollFields, formatStatus } from "./format.js";
 import { createResponse } from "./createResponse.js";
 
@@ -93,7 +95,7 @@ export function calculateChrisStyleWinner(candidates, votes) {
 //   return output;
 // }
 
-export async function handleChrisStyleVoting(interaction, env, pollManager) {
+export async function handleChrisStyleVoting(interaction, env, pollManager, ctx) {
   const customId = interaction.data.custom_id;
   const parts = customId.split("_");
   const position = parts[2]; // first, second, third
@@ -154,27 +156,65 @@ export async function handleChrisStyleVoting(interaction, env, pollManager) {
     // Get poll for announcement
     const poll = await pollManager.getPoll(pollId);
 
-    // // Send announcement to channel
-    // try {
-    //   if (poll?.channelId) {
-    //     const announcementContent = `🗳️ **Vote Submitted!**\n\n<@${userId}> has voted in **${poll.title}**`;
-
-    //     await sendDiscordMessage(
-    //       poll.channelId,
-    //       announcementContent,
-    //       pollManager.env,
-    //     );
-    //   }
-    // } catch (error) {
-    //   console.error("Failed to announce vote:", error);
-    // }
-
     const username =
       interaction.member?.user?.username || interaction.user?.username;
 
+    // Build the ordered list of the user's chosen nominations for the DM
+    const positionLabels = { first: "1st", second: "2nd", third: "3rd" };
+    const orderedSelections = rankings.map((nominationId, idx) => {
+      const nom = poll.nominations.find((n) => n.id === nominationId);
+      const positionKey = ["first", "second", "third"][idx];
+      const label = positionLabels[positionKey];
+      return `**${label}** — ${nom ? formatNomination(nom, { includeUser: false }) : `#${nominationId}`}`;
+    });
+
+    const dmFields = [
+      {
+        name: "🗳️ Your Choices",
+        value: orderedSelections.join("\n"),
+        inline: false,
+      },
+    ];
+
+    if (poll.quote) {
+      dmFields.push({
+        name: "\u200b",
+        value: `*${poll.quote}*`,
+        inline: false,
+      });
+    }
+
+    // Send private DM confirming the vote with their selections and the quote
+    runInBackground(
+      ctx,
+      sendDiscordDm(
+        userId,
+        {
+          embeds: [
+            {
+              title: "✅ Your vote has been recorded!",
+              description: `Your choices for **${poll.title}** have been saved.`,
+              color: 0x57f287, // Discord green
+              fields: dmFields,
+              footer: { text: `Poll ID: ${poll.id}` },
+            },
+          ],
+        },
+        env,
+      ).catch((err) => {
+        console.error("chris-style: Failed to send vote confirmation DM:", err);
+      }),
+    );
+
+    // Build the public reply: who voted and how long until voting ends
+    const votingDeadlineTs = Math.floor(
+      new Date(poll.votingDeadline).getTime() / 1000,
+    );
+
     return createResponse({
-      content: `\n\u200b\n\u200b 🗳️ ${username} voted!\n\u200b${poll.quote ? `\n\u200b${poll.quote}\n\u200b` : ""}`,
-      embeds: [formatStatus(poll)],
+      content:
+        `🗳️ **${username}** voted in **${poll.title}**!\n` +
+        `Voting closes <t:${votingDeadlineTs}:R> (<t:${votingDeadlineTs}:F>).`,
     });
   }
 
