@@ -23,8 +23,8 @@ export class PollManager {
                 INSERT INTO polls (
                     id, title, guild_id, channel_id, creator_id,
                     phase, tally_method, nomination_deadline, voting_deadline,
-                    created_at, updated_at, description, quote
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at, description, quote, is_test
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
         )
         .bind(
@@ -41,6 +41,7 @@ export class PollManager {
           now,
           pollData.description || null,
           pollData.quote || null,
+          pollData.isTest ? 1 : 0,
         )
         .run();
 
@@ -59,7 +60,7 @@ export class PollManager {
           `
                 SELECT id, title, guild_id, channel_id, creator_id, phase, tally_method,
                        nomination_deadline, voting_deadline, created_at, updated_at, results_data,
-                       description, quote
+                       description, quote, is_test
                 FROM polls WHERE id = ?
             `,
         )
@@ -119,6 +120,7 @@ export class PollManager {
         updatedAt: pollResult.updated_at,
         description: pollResult.description || null,
         quote: pollResult.quote || null,
+        isTest: !!pollResult.is_test,
         nominations: [],
         votes: [],
         results: null,
@@ -215,6 +217,7 @@ export class PollManager {
         votingDeadline: pollRow.voting_deadline,
         createdAt: pollRow.created_at,
         updatedAt: pollRow.updated_at,
+        isTest: !!pollRow.is_test,
       }));
     } catch (error) {
       console.error("Error getting polls:", error);
@@ -234,6 +237,8 @@ export class PollManager {
 
       if (key === "results") {
         bindings.push(JSON.stringify(value));
+      } else if (key === "isTest") {
+        bindings.push(value ? 1 : 0);
       } else {
         bindings.push(value);
       }
@@ -286,6 +291,7 @@ export class PollManager {
       quote: "quote",
       nominationDeadline: "nomination_deadline",
       votingDeadline: "voting_deadline",
+      isTest: "is_test",
     };
     return fieldMap[field] || field;
   }
@@ -561,6 +567,33 @@ export class PollManager {
       }));
     } catch (error) {
       console.error("Error getting active polls:", error);
+      return [];
+    }
+  }
+
+  // Full poll objects (nominations, votes, results) for every completed,
+  // non-test poll, used by the hidden /stats page to compute historical
+  // stats. Not scoped to a guild since this bot only ever serves a single
+  // guild in practice.
+  async getCompletedPolls() {
+    try {
+      const result = await this.db
+        .prepare(
+          `
+                SELECT id FROM polls WHERE phase = 'completed' AND is_test = 0 ORDER BY created_at DESC LIMIT 500
+            `,
+        )
+        .all();
+
+      if (!result?.results) return [];
+
+      const polls = await Promise.all(
+        result.results.map((row) => this.getPoll(row.id)),
+      );
+
+      return polls.filter((poll) => poll !== null);
+    } catch (error) {
+      console.error("Error getting completed polls:", error);
       return [];
     }
   }

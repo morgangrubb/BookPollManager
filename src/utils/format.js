@@ -79,6 +79,14 @@ export function formatPollFields(poll) {
     });
   }
 
+  if (poll.isTest) {
+    fields.push({
+      name: "🧪 Test Poll",
+      value: "Excluded from /stats",
+      inline: true,
+    });
+  }
+
   return fields;
 }
 
@@ -140,7 +148,7 @@ export function formatStatus(
   }
 
   const embed = {
-    title: `📚 ${poll.title}${header ? ` - ${header}` : ""}`,
+    title: `${poll.isTest ? "🧪 " : ""}📚 ${poll.title}${header ? ` - ${header}` : ""}`,
     description,
     color:
       poll.phase === "completed"

@@ -330,7 +330,7 @@ export function formatChrisStyleResults(poll, { heading } = {}) {
   }
 
   const embed = {
-    title: `${results.tie ? "❓" : "🏆"} ${poll.title} - ${heading || "Results"}`,
+    title: `${poll.isTest ? "🧪 " : ""}${results.tie ? "❓" : "🏆"} ${poll.title} - ${heading || "Results"}`,
     description,
     color: 0x00ff00,
     fields: formatPollFields(poll),

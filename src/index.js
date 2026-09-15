@@ -5,6 +5,8 @@ import { checkPollPhases } from "./services/scheduler.js";
 import { handleInteraction } from "./interactions/index.js";
 import { verifyDiscordSignature } from "./utils/discord/verifySignature.js";
 import { renderProvisionalScoresPage } from "./utils/provisionalScores.js";
+import { computeStats } from "./utils/stats.js";
+import { renderStatsPage } from "./utils/statsPage.js";
 
 // Cron handler for poll phase transitions
 async function handleCron(event, env, ctx) {
@@ -76,6 +78,21 @@ export default {
             : null;
 
         return new Response(renderProvisionalScoresPage(poll), {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      }
+
+      // Page showing historical stats (nomination wins, first-pick accuracy,
+      // points cast toward winners) across all completed polls. Not linked
+      // anywhere, but unlike /provisional-scores it only reflects finished
+      // polls, so it isn't gated by a token.
+      if (url.pathname === "/stats" && request.method === "GET") {
+        const pollManager = new PollManager(env);
+        const completedPolls = await pollManager.getCompletedPolls();
+        const stats = computeStats(completedPolls);
+
+        return new Response(renderStatsPage(stats), {
           status: 200,
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });

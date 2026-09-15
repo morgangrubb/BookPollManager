@@ -53,6 +53,12 @@ export const createPollCommand = {
       type: 3, // STRING
       required: false,
     },
+    {
+      name: "test",
+      description: "Mark this as a test poll (excluded from /stats)",
+      type: 5, // BOOLEAN
+      required: false,
+    },
   ],
 };
 
@@ -64,6 +70,7 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
     getOptionValue(options, "tally_method") || "ranked-choice";
   const description = getOptionValue(options, "description");
   const quote = getOptionValue(options, "quote");
+  const isTest = getOptionValue(options, "test") || false;
 
   if (!title || !nominationEnd || !votingEnd) {
     return createResponse({
@@ -108,6 +115,7 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
     votingEnd: votingDeadline.toISOString(),
     description,
     quote,
+    isTest,
   };
 
   const poll = await pollManager.createPoll(pollData);
@@ -118,7 +126,7 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
       data: {
         embeds: [
           {
-            title: "📚 New Book Poll Created!",
+            title: `${isTest ? "🧪 " : ""}📚 New Book Poll Created!`,
             description: description
               ? `**${title}**\n\n${description}\n\nNomination phase has started!`
               : `**${title}**\n\nNomination phase has started!`,
@@ -141,6 +149,15 @@ export async function handleCreatePoll({ interaction, options, pollManager }) {
                     : "Ranked Choice (IRV)",
                 inline: true,
               },
+              ...(isTest
+                ? [
+                    {
+                      name: "🧪 Test Poll",
+                      value: "Excluded from /stats",
+                      inline: true,
+                    },
+                  ]
+                : []),
             ],
             color: 0x00ff00,
             footer: {

@@ -143,6 +143,29 @@ describe("formatPollFields", () => {
     expect(fields[0].value).toBe("Completed");
     expect(fields[2].value).toBe("25");
   });
+
+  it("does not add a test poll field when the poll is not flagged as a test", () => {
+    const poll = {
+      phase: "completed",
+      tallyMethod: "chris-style",
+      results: { totalVotes: 25 },
+    };
+    const fields = formatPollFields(poll);
+    expect(fields.find((f) => f.name === "🧪 Test Poll")).toBeUndefined();
+  });
+
+  it("adds a Test Poll field when the poll is flagged as a test", () => {
+    const poll = {
+      phase: "completed",
+      tallyMethod: "chris-style",
+      isTest: true,
+      results: { totalVotes: 25 },
+    };
+    const fields = formatPollFields(poll);
+    const testField = fields.find((f) => f.name === "🧪 Test Poll");
+    expect(testField).toBeDefined();
+    expect(testField.value).toBe("Excluded from /stats");
+  });
 });
 
 describe("formatStatus", () => {
@@ -165,6 +188,13 @@ describe("formatStatus", () => {
     expect(embed.title).toBe("📚 Test Poll");
     expect(embed.color).toBe(0xffaa00);
     expect(embed.fields).toHaveLength(5); // Phase, Deadline, Tally, Votes, Nominations
+  });
+
+  it("prefixes the title with a test badge and adds a field when the poll is flagged as a test poll", () => {
+    const testPoll = { ...mockPoll, isTest: true };
+    const embed = formatStatus(testPoll, { header: "Status" });
+    expect(embed.title).toBe("🧪 📚 Test Poll - Status");
+    expect(embed.fields.some((f) => f.name === "🧪 Test Poll")).toBe(true);
   });
 
   it("formats the status embed for a completed poll with a winner", () => {

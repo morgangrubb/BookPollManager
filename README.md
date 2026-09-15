@@ -79,6 +79,10 @@ wrangler deploy
 
 Full instructions in [DEPLOYMENT-SERVERLESS.md](DEPLOYMENT-SERVERLESS.md).
 
+### 5. Invite to your server
+
+https://discord-book-poll-bot.miggles.workers.dev/invite
+
 ## Available Commands
 
 - `/poll create` - Create a new book poll

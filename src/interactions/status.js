@@ -1,6 +1,7 @@
 // src/interactions/status.js
 import { createResponse } from "../utils/createResponse.js";
 import { formatResults, formatStatus } from "../utils/format.js";
+import { calculateChrisStyleWinner } from "../utils/chrisStyle.js";
 
 export const statusCommand = {
   name: "status",
@@ -36,11 +37,21 @@ export async function handlePollStatus({ poll, options }) {
   const showNominations =
     options?.find((opt) => opt.name === "nominations")?.value || false;
 
+  console.log({ showNominations });
+
   let embed;
 
   if (poll.phase === "completed") {
     embed = formatResults(poll, { showIndexedNominations: showNominations });
   } else {
+    console.log(
+      JSON.stringify(
+        calculateChrisStyleWinner(poll.nominations || [], poll.votes || []),
+        null,
+        2,
+      ),
+    );
+
     embed = formatStatus(poll, { showIndexedNominations: showNominations });
   }
 

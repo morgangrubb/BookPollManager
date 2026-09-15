@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS polls (
     voting_deadline TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    results_data TEXT -- JSON string for results
+    results_data TEXT, -- JSON string for results
+    is_test INTEGER NOT NULL DEFAULT 0 -- 1 marks a test poll, excluded from stats
 );
 
 -- Nominations table

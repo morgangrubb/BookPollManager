@@ -58,5 +58,48 @@ describe("handleCreatePoll", () => {
     expect(data.type).toBe(4);
     expect(data.data.embeds[0].title).toBe("📚 New Book Poll Created!");
   });
+
+  it("marks the poll as a test poll and badges the confirmation embed", async () => {
+    const mockCreatePoll = vi.fn().mockResolvedValue({
+      id: "123",
+      title: "Test Poll",
+      isTest: true,
+    });
+    PollManager.mockImplementation(() => {
+      return {
+        createPoll: mockCreatePoll,
+      };
+    });
+
+    const interaction = {
+      guild_id: "test-guild",
+      channel_id: "test-channel",
+      member: { user: { id: "test-user" } },
+    };
+    const nominationEnd = new Date(Date.now() + 86400000).toISOString();
+    const votingEnd = new Date(Date.now() + 2 * 86400000).toISOString();
+    const options = [
+      { name: "title", value: "Test Poll" },
+      { name: "nomination_end", value: nominationEnd },
+      { name: "voting_end", value: votingEnd },
+      { name: "test", value: true },
+    ];
+    const pollManager = new PollManager({});
+
+    const response = await handleCreatePoll({
+      interaction,
+      options,
+      pollManager,
+    });
+    const data = await response.json();
+
+    expect(mockCreatePoll).toHaveBeenCalledWith(
+      expect.objectContaining({ isTest: true }),
+    );
+    expect(data.data.embeds[0].title).toBe("🧪 📚 New Book Poll Created!");
+    expect(
+      data.data.embeds[0].fields.some((f) => f.name === "🧪 Test Poll"),
+    ).toBe(true);
+  });
 });
 

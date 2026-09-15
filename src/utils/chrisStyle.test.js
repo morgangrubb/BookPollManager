@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { calculateChrisStyleWinner } from "./chrisStyle.js";
+import {
+  calculateChrisStyleWinner,
+  formatChrisStyleResults,
+} from "./chrisStyle.js";
 
 const candidates = [
   { id: 1, title: "Book A" },
@@ -67,5 +70,36 @@ describe("calculateChrisStyleWinner", () => {
     expect(results.standings.find((s) => s.nomination.id === 1).points).toBe(3);
     expect(results.standings.find((s) => s.nomination.id === 2).points).toBe(2);
     expect(results.standings.find((s) => s.nomination.id === 3).points).toBe(1);
+  });
+});
+
+describe("formatChrisStyleResults", () => {
+  const basePoll = {
+    id: "poll-1",
+    title: "Test Poll",
+    phase: "completed",
+    tallyMethod: "chris-style",
+    results: {
+      totalVotes: 3,
+      tie: false,
+      winner: { id: 1, title: "Book A" },
+      standings: [
+        { nomination: { id: 1, title: "Book A" }, points: 8 },
+        { nomination: { id: 2, title: "Book B" }, points: 4 },
+      ],
+    },
+  };
+
+  it("does not prefix the title when the poll is not a test poll", () => {
+    const embed = formatChrisStyleResults(basePoll);
+    expect(embed.title).toBe("🏆 Test Poll - Results");
+  });
+
+  it("prefixes the title and adds a field when the poll is flagged as a test poll", () => {
+    const embed = formatChrisStyleResults({ ...basePoll, isTest: true });
+    expect(embed.title).toBe("🧪 🏆 Test Poll - Results");
+    expect(
+      embed.fields.some((f) => f.name === "🧪 Test Poll"),
+    ).toBe(true);
   });
 });
