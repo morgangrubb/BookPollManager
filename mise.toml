@@ -1,0 +1,18 @@
+[tools]
+wrangler = "latest"
+node = "22.16.0"
+
+[tasks."deps:js"]
+run = "npm install"
+
+[tasks.deploy]
+run = "wrangler deploy"
+
+[tasks.tail]
+run = "wrangler tail"
+
+[tasks.test]
+run = "npm test"
+
+[tasks."test:watch"]
+run = "npm test:watch"
