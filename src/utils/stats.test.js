@@ -97,6 +97,203 @@ describe("computeStats", () => {
     expect(stats.nominationWins.every((r) => r.wins === 0)).toBe(true);
   });
 
+  it("counts 2nd and 3rd place finishes for chris-style polls from the standings order", () => {
+    const poll = {
+      phase: "completed",
+      tallyMethod: "chris-style",
+      nominations: [bookA, bookB, bookC],
+      votes: [],
+      results: {
+        winner: bookA,
+        standings: [
+          { nomination: bookA, points: 8 },
+          { nomination: bookB, points: 5 },
+          { nomination: bookC, points: 2 },
+        ],
+      },
+    };
+
+    const stats = computeStats([poll]);
+
+    const alice = stats.nominationWins.find((r) => r.displayName === "Alice");
+    const bob = stats.nominationWins.find((r) => r.displayName === "Bob");
+    const carol = stats.nominationWins.find((r) => r.displayName === "Carol");
+
+    expect(alice.wins).toBe(1);
+    expect(alice.second).toBe(0);
+    expect(alice.third).toBe(0);
+
+    expect(bob.wins).toBe(0);
+    expect(bob.second).toBe(1);
+    expect(bob.third).toBe(0);
+
+    expect(carol.wins).toBe(0);
+    expect(carol.second).toBe(0);
+    expect(carol.third).toBe(1);
+  });
+
+  it("counts 2nd and 3rd place finishes for ranked-choice polls from reversed elimination order", () => {
+    const poll = {
+      phase: "completed",
+      tallyMethod: "ranked-choice",
+      nominations: [bookA, bookB, bookC],
+      votes: [],
+      results: {
+        winner: bookA,
+        // Carol eliminated first (3rd place), Bob eliminated last before the
+        // winner was decided (2nd place).
+        rounds: [
+          { eliminated: bookC, votes: {} },
+          { eliminated: bookB, votes: {} },
+        ],
+      },
+    };
+
+    const stats = computeStats([poll]);
+
+    const alice = stats.nominationWins.find((r) => r.displayName === "Alice");
+    const bob = stats.nominationWins.find((r) => r.displayName === "Bob");
+    const carol = stats.nominationWins.find((r) => r.displayName === "Carol");
+
+    expect(alice.wins).toBe(1);
+    expect(bob.second).toBe(1);
+    expect(bob.third).toBe(0);
+    expect(carol.second).toBe(0);
+    expect(carol.third).toBe(1);
+  });
+
+  it("sorts nomination wins by wins, then 2nd place, then 3rd place", () => {
+    const poll = {
+      phase: "completed",
+      tallyMethod: "chris-style",
+      nominations: [bookA, bookB, bookC],
+      votes: [],
+      results: {
+        winner: bookC,
+        standings: [
+          { nomination: bookC, points: 8 },
+          { nomination: bookA, points: 5 },
+          { nomination: bookB, points: 2 },
+        ],
+      },
+    };
+
+    const stats = computeStats([poll]);
+
+    // Carol (winner) first, then Alice (2nd), then Bob (3rd)
+    expect(stats.nominationWins.map((r) => r.displayName)).toEqual([
+      "Carol",
+      "Alice",
+      "Bob",
+    ]);
+  });
+
+  it("sums nomination points received by user across chris-style standings, including zero-point nominators", () => {
+    const poll1 = {
+      id: "poll-1",
+      phase: "completed",
+      tallyMethod: "chris-style",
+      nominations: [bookA, bookB],
+      votes: [],
+      results: {
+        winner: bookA,
+        standings: [
+          { nomination: bookA, points: 5 },
+          { nomination: bookB, points: 2 },
+        ],
+      },
+    };
+    const poll2 = {
+      id: "poll-2",
+      phase: "completed",
+      tallyMethod: "chris-style",
+      nominations: [bookA, bookC],
+      votes: [],
+      results: {
+        winner: bookA,
+        standings: [
+          { nomination: bookA, points: 3 },
+          { nomination: bookC, points: 0 },
+        ],
+      },
+    };
+
+    const stats = computeStats([poll1, poll2]);
+
+    const alice = stats.nominationPointsReceived.find(
+      (r) => r.displayName === "Alice",
+    );
+    const bob = stats.nominationPointsReceived.find(
+      (r) => r.displayName === "Bob",
+    );
+    const carol = stats.nominationPointsReceived.find(
+      (r) => r.displayName === "Carol",
+    );
+
+    expect(alice.totalPoints).toBe(8); // 5 + 3 across both polls
+    expect(alice.avgPoints).toBe(4); // 8 points / 2 polls nominated in
+    expect(bob.totalPoints).toBe(2);
+    expect(bob.avgPoints).toBe(2); // 2 points / 1 poll nominated in
+    expect(carol.totalPoints).toBe(0);
+    expect(carol.avgPoints).toBe(0);
+    // Most total points first
+    expect(stats.nominationPointsReceived[0].displayName).toBe("Alice");
+  });
+
+  it("averages nomination points per poll, not per nomination", () => {
+    // Alice nominates in 3 polls but only earns points in one of them.
+    const poll1 = {
+      id: "poll-1",
+      phase: "completed",
+      tallyMethod: "chris-style",
+      nominations: [bookA],
+      votes: [],
+      results: { winner: null, standings: [{ nomination: bookA, points: 6 }] },
+    };
+    const poll2 = {
+      id: "poll-2",
+      phase: "completed",
+      tallyMethod: "chris-style",
+      nominations: [bookA],
+      votes: [],
+      results: { winner: null, standings: [{ nomination: bookA, points: 0 }] },
+    };
+    const poll3 = {
+      id: "poll-3",
+      phase: "completed",
+      tallyMethod: "ranked-choice", // no standings/points at all
+      nominations: [bookA],
+      votes: [],
+      results: { winner: null },
+    };
+
+    const stats = computeStats([poll1, poll2, poll3]);
+    const alice = stats.nominationPointsReceived.find(
+      (r) => r.displayName === "Alice",
+    );
+
+    expect(alice.totalPoints).toBe(6);
+    expect(alice.avgPoints).toBe(2); // 6 points / 3 polls nominated in
+  });
+
+  it("does not award nomination points received for ranked-choice polls", () => {
+    const poll = {
+      phase: "completed",
+      tallyMethod: "ranked-choice",
+      nominations: [bookA, bookB],
+      votes: [],
+      results: { winner: bookA },
+    };
+
+    const stats = computeStats([poll]);
+    expect(
+      stats.nominationPointsReceived.every((r) => r.totalPoints === 0),
+    ).toBe(true);
+    expect(
+      stats.nominationPointsReceived.every((r) => r.avgPoints === 0),
+    ).toBe(true);
+  });
+
   it("tracks how often a user's first choice matched the winner, resolving by nomination id", () => {
     const poll = {
       phase: "completed",

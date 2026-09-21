@@ -36,6 +36,51 @@ describe("renderStatsPage", () => {
     expect(aliceIndex).toBeLessThan(bobIndex);
   });
 
+  it("renders 2nd and 3rd place columns in the nomination wins table", () => {
+    const stats = {
+      totalCompletedPolls: 1,
+      pollsWithWinner: 1,
+      nominationWins: [
+        { displayName: "Alice", wins: 1, second: 0, third: 0 },
+        { displayName: "Bob", wins: 0, second: 1, third: 0 },
+        { displayName: "Carol", wins: 0, second: 0, third: 1 },
+      ],
+      firstChoiceAccuracy: [],
+      pointsTowardWinner: [],
+    };
+
+    const html = renderStatsPage(stats);
+
+    expect(html).toContain("1st Place");
+    expect(html).toContain("2nd Place");
+    expect(html).toContain("3rd Place");
+
+    const aliceRow = html
+      .split("\n")
+      .find((line) => line.includes("Alice"));
+    expect(aliceRow).toContain("<td>1</td><td>0</td><td>0</td>");
+
+    const bobRow = html.split("\n").find((line) => line.includes("Bob"));
+    expect(bobRow).toContain("<td>0</td><td>1</td><td>0</td>");
+
+    const carolRow = html.split("\n").find((line) => line.includes("Carol"));
+    expect(carolRow).toContain("<td>0</td><td>0</td><td>1</td>");
+  });
+
+  it("defaults 2nd and 3rd place counts to 0 when missing from a row", () => {
+    const stats = {
+      totalCompletedPolls: 1,
+      pollsWithWinner: 1,
+      nominationWins: [{ displayName: "Dave", wins: 1 }],
+      firstChoiceAccuracy: [],
+      pointsTowardWinner: [],
+    };
+
+    const html = renderStatsPage(stats);
+    const daveRow = html.split("\n").find((line) => line.includes("Dave"));
+    expect(daveRow).toContain("<td>1</td><td>0</td><td>0</td>");
+  });
+
   it("renders the first-choice accuracy table with a percentage", () => {
     const stats = {
       totalCompletedPolls: 1,
@@ -64,6 +109,45 @@ describe("renderStatsPage", () => {
     const html = renderStatsPage(stats);
     expect(html).toContain("Erin");
     expect(html).toContain("6");
+  });
+
+  it("renders the nomination-points-received table with total and average columns", () => {
+    const stats = {
+      totalCompletedPolls: 1,
+      pollsWithWinner: 1,
+      nominationWins: [],
+      firstChoiceAccuracy: [],
+      pointsTowardWinner: [],
+      nominationPointsReceived: [
+        { displayName: "Alice", totalPoints: 8, avgPoints: 4 },
+        { displayName: "Bob", totalPoints: 0, avgPoints: 0 },
+      ],
+    };
+
+    const html = renderStatsPage(stats);
+    expect(html).toContain("Nomination Points Received by User");
+    expect(html).toContain("Total Points");
+    expect(html).toContain("Avg Points");
+    const aliceIndex = html.indexOf("Alice");
+    const bobIndex = html.indexOf("Bob");
+    expect(html).toContain("8");
+    expect(html).toContain("4.0");
+    expect(aliceIndex).toBeGreaterThan(-1);
+    expect(aliceIndex).toBeLessThan(bobIndex);
+  });
+
+  it("shows a fallback message when there are no nomination points recorded", () => {
+    const stats = {
+      totalCompletedPolls: 1,
+      pollsWithWinner: 1,
+      nominationWins: [],
+      firstChoiceAccuracy: [],
+      pointsTowardWinner: [],
+      nominationPointsReceived: [],
+    };
+
+    const html = renderStatsPage(stats);
+    expect(html).toContain("No chris-style points recorded yet.");
   });
 
   it("escapes user display names to prevent HTML injection", () => {

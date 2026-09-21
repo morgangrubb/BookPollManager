@@ -34,12 +34,12 @@ function renderNominationWinsTable(rows) {
   const body = rows
     .map(
       (row, idx) =>
-        `<tr><td>${idx + 1}</td><td>${escapeHtml(row.displayName)}</td><td>${row.wins}</td></tr>`,
+        `<tr><td>${idx + 1}</td><td>${escapeHtml(row.displayName)}</td><td>${row.wins}</td><td>${row.second ?? 0}</td><td>${row.third ?? 0}</td></tr>`,
     )
     .join("\n");
 
   return `<table>
-<thead><tr><th>#</th><th>User</th><th>Winning Nominations</th></tr></thead>
+<thead><tr><th>#</th><th>User</th><th>1st Place</th><th>2nd Place</th><th>3rd Place</th></tr></thead>
 <tbody>${body}</tbody>
 </table>`;
 }
@@ -62,9 +62,9 @@ function renderFirstChoiceTable(rows) {
 </table>`;
 }
 
-function renderPointsTable(rows) {
+function renderPointsTable(rows, { columnHeader, emptyMessage }) {
   if (rows.length === 0) {
-    return `<p class="empty">No chris-style points recorded yet.</p>`;
+    return `<p class="empty">${emptyMessage}</p>`;
   }
 
   const body = rows
@@ -75,7 +75,25 @@ function renderPointsTable(rows) {
     .join("\n");
 
   return `<table>
-<thead><tr><th>User</th><th>Points Cast Toward Winner</th></tr></thead>
+<thead><tr><th>User</th><th>${columnHeader}</th></tr></thead>
+<tbody>${body}</tbody>
+</table>`;
+}
+
+function renderNominationPointsTable(rows) {
+  if (rows.length === 0) {
+    return `<p class="empty">No chris-style points recorded yet.</p>`;
+  }
+
+  const body = rows
+    .map(
+      (row) =>
+        `<tr><td>${escapeHtml(row.displayName)}</td><td>${row.totalPoints}</td><td>${row.avgPoints.toFixed(1)}</td></tr>`,
+    )
+    .join("\n");
+
+  return `<table>
+<thead><tr><th>User</th><th>Total Points</th><th>Avg Points / Poll</th></tr></thead>
 <tbody>${body}</tbody>
 </table>`;
 }
@@ -139,10 +157,12 @@ export function renderStatsPage(stats) {
 ${meta}
 <h2>Nomination Wins by User</h2>
 ${renderNominationWinsTable(stats.nominationWins)}
+<h2>Nomination Points Received by User (Chris-Style Polls)</h2>
+${renderNominationPointsTable(stats.nominationPointsReceived || [])}
 <h2>How Often a User's First Pick Was the Winner</h2>
 ${renderFirstChoiceTable(stats.firstChoiceAccuracy)}
 <h2>Points Cast Toward the Winning Nomination (Chris-Style Polls)</h2>
-${renderPointsTable(stats.pointsTowardWinner)}
+${renderPointsTable(stats.pointsTowardWinner, { columnHeader: "Points Cast Toward Winner", emptyMessage: "No chris-style points recorded yet." })}
 <h2>Nomination &amp; Voting Speed by User</h2>
 ${renderTimingTable(stats.userTiming || [])}
 <h2>Top 10 Polls by Nominations</h2>

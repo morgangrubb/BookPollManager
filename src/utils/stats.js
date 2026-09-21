@@ -56,6 +56,30 @@ function sortDescBy(map, key) {
   return [...map.values()].sort((a, b) => b[key] - a[key]);
 }
 
+// Best-to-worst finishing order of nominations for a completed poll, used to
+// attribute 2nd/3rd place finishes (in addition to the win) to nominators.
+// Chris-style standings are already sorted by points. Ranked-choice has no
+// points, so the order is reconstructed from elimination order: the winner
+// finishes 1st, the last candidate eliminated finishes 2nd, the
+// second-to-last eliminated finishes 3rd, and so on.
+function getFinalRankOrder(poll) {
+  const winner = poll.results?.winner;
+  if (!winner) return [];
+
+  if (poll.tallyMethod === "chris-style" && Array.isArray(poll.results?.standings)) {
+    return poll.results.standings.map((standing) => standing.nomination).filter(Boolean);
+  }
+
+  if (poll.tallyMethod === "ranked-choice" && Array.isArray(poll.results?.rounds)) {
+    const eliminatedInOrder = poll.results.rounds
+      .map((round) => round.eliminated)
+      .filter(Boolean);
+    return [winner, ...eliminatedInOrder.reverse()];
+  }
+
+  return [winner];
+}
+
 function average(numbers) {
   if (!numbers || numbers.length === 0) return null;
   return numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
@@ -80,6 +104,7 @@ export function computeStats(polls) {
   const usernameByUserId = buildUsernameMap(completedPolls);
 
   const nominationWinsByUser = new Map(); // userId -> { displayName, wins }
+  const nominationPointsByUser = new Map(); // userId -> { displayName, points }
   const firstChoiceByUser = new Map(); // userId -> { displayName, hits, totalVotes }
   const pointsByUser = new Map(); // userId -> { displayName, points }
   const nominationTimingByUser = new Map(); // userId -> { displayName, durationsMs: [] }
@@ -116,15 +141,45 @@ export function computeStats(polls) {
       nominationTimingByUser.set(nomination.userId, entry);
     }
 
-    // Seed every nominator in this poll so users with zero wins still show
-    // up in the "least" end of the nomination-wins table.
+    // Seed every nominator in this poll so users with zero wins/points still
+    // show up in the "least" end of these tables. pollIds tracks distinct
+    // polls nominated in, so the average below is per poll, not per
+    // nomination (a user only nominates once per poll under normal use).
     for (const nomination of nominations) {
       if (!nomination.userId) continue;
       if (!nominationWinsByUser.has(nomination.userId)) {
         nominationWinsByUser.set(nomination.userId, {
           displayName: nomination.username || nomination.userId,
           wins: 0,
+          second: 0,
+          third: 0,
         });
+      }
+      if (!nominationPointsByUser.has(nomination.userId)) {
+        nominationPointsByUser.set(nomination.userId, {
+          displayName: nomination.username || nomination.userId,
+          points: 0,
+          pollIds: new Set(),
+        });
+      }
+      nominationPointsByUser.get(nomination.userId).pollIds.add(poll.id);
+    }
+
+    // Chris-style standings carry the points each nomination earned from all
+    // voters. Attribute those points to whoever nominated the book.
+    if (poll.tallyMethod === "chris-style" && Array.isArray(poll.results?.standings)) {
+      for (const standing of poll.results.standings) {
+        const nomination = standing.nomination;
+        if (!nomination || !nomination.userId) continue;
+        const entry = nominationPointsByUser.get(nomination.userId) || {
+          displayName: nomination.username || nomination.userId,
+          points: 0,
+          pollIds: new Set(),
+        };
+        entry.points += standing.points || 0;
+        entry.displayName = nomination.username || entry.displayName;
+        entry.pollIds.add(poll.id);
+        nominationPointsByUser.set(nomination.userId, entry);
       }
     }
 
@@ -134,10 +189,38 @@ export function computeStats(polls) {
       const entry = nominationWinsByUser.get(winnerUserId) || {
         displayName: winner.username || winnerUserId,
         wins: 0,
+        second: 0,
+        third: 0,
       };
       entry.wins += 1;
       entry.displayName = winner.username || entry.displayName;
       nominationWinsByUser.set(winnerUserId, entry);
+
+      const [, secondPlace, thirdPlace] = getFinalRankOrder(poll);
+
+      if (secondPlace && secondPlace.userId) {
+        const secondEntry = nominationWinsByUser.get(secondPlace.userId) || {
+          displayName: secondPlace.username || secondPlace.userId,
+          wins: 0,
+          second: 0,
+          third: 0,
+        };
+        secondEntry.second += 1;
+        secondEntry.displayName = secondPlace.username || secondEntry.displayName;
+        nominationWinsByUser.set(secondPlace.userId, secondEntry);
+      }
+
+      if (thirdPlace && thirdPlace.userId) {
+        const thirdEntry = nominationWinsByUser.get(thirdPlace.userId) || {
+          displayName: thirdPlace.username || thirdPlace.userId,
+          wins: 0,
+          second: 0,
+          third: 0,
+        };
+        thirdEntry.third += 1;
+        thirdEntry.displayName = thirdPlace.username || thirdEntry.displayName;
+        nominationWinsByUser.set(thirdPlace.userId, thirdEntry);
+      }
     }
 
     // Voting phase runs from the nomination deadline to the voting deadline.
@@ -235,6 +318,14 @@ export function computeStats(polls) {
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
+  const nominationPointsReceived = [...nominationPointsByUser.values()]
+    .map((entry) => ({
+      displayName: entry.displayName,
+      totalPoints: entry.points,
+      avgPoints: entry.pollIds.size > 0 ? entry.points / entry.pollIds.size : 0,
+    }))
+    .sort((a, b) => b.totalPoints - a.totalPoints);
+
   // Top/bottom 10 polls by nomination count and by vote count. With fewer
   // than 20 polls the top and bottom lists may overlap - that's expected.
   const POLL_LEADERBOARD_SIZE = 10;
@@ -246,7 +337,10 @@ export function computeStats(polls) {
   return {
     totalCompletedPolls: completedPolls.length,
     pollsWithWinner,
-    nominationWins: sortDescBy(nominationWinsByUser, "wins"),
+    nominationWins: [...nominationWinsByUser.values()].sort(
+      (a, b) => b.wins - a.wins || b.second - a.second || b.third - a.third,
+    ),
+    nominationPointsReceived,
     firstChoiceAccuracy,
     pointsTowardWinner: sortDescBy(pointsByUser, "points"),
     userTiming,
