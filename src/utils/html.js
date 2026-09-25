@@ -1,5 +1,5 @@
-// Shared helpers for the hidden, token-gated HTML pages (provisional scores,
-// stats, etc). Keeps escaping and the page shell consistent across pages.
+// Shared helpers for the worker's HTML pages. Keeps escaping and the page
+// shell consistent across public and token-gated pages.
 
 export function escapeHtml(value) {
   if (value == null) return "";
@@ -29,6 +29,12 @@ export function pageShell({ title, body }) {
   tr.eliminated { color: #ed4245; }
   .empty { color: #96989d; font-style: italic; }
   .meta { color: #96989d; font-size: 0.9rem; }
+  .author { color: #b5bac1; }
+  .winner { color: #f0b232; }
+  a, a:visited { color: #8ab4f8; }
+  a:hover { color: #bcd4ff; }
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; gap: 1rem; }
+  .disabled { color: #5c5e66; }
 </style>
 </head>
 <body>

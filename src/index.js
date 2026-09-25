@@ -7,6 +7,17 @@ import { verifyDiscordSignature } from "./utils/discord/verifySignature.js";
 import { renderProvisionalScoresPage } from "./utils/provisionalScores.js";
 import { computeStats } from "./utils/stats.js";
 import { renderStatsPage } from "./utils/statsPage.js";
+import { renderPollsPage } from "./utils/pollsPage.js";
+import { renderPollPage } from "./utils/pollPage.js";
+import { renderWinnersCsv } from "./utils/winnersCsv.js";
+
+const COMPLETED_POLLS_PER_PAGE = 20;
+
+function parsePageNumber(url) {
+  const rawPage = url.searchParams.get("page");
+  const page = rawPage === null ? 1 : Number(rawPage);
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
 
 // Cron handler for poll phase transitions
 async function handleCron(event, env, ctx) {
@@ -93,6 +104,58 @@ export default {
         const stats = computeStats(completedPolls);
 
         return new Response(renderStatsPage(stats), {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      }
+
+      // Download all completed, non-test poll winners as CSV. Unlike the HTML
+      // listing this export is not paginated.
+      if (url.pathname === "/polls.csv" && request.method === "GET") {
+        const pollManager = new PollManager(env);
+        const winners = await pollManager.getCompletedPollWinners();
+
+        return new Response(renderWinnersCsv(winners), {
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="poll-winners.csv"',
+          },
+        });
+      }
+
+      // Public page listing completed, non-test polls. The page number is
+      // supplied as ?page=N and defaults to the first page.
+      if (url.pathname === "/polls" && request.method === "GET") {
+        const pollManager = new PollManager(env);
+        const page = await pollManager.getCompletedPollsPage(
+          parsePageNumber(url),
+          COMPLETED_POLLS_PER_PAGE,
+        );
+
+        return new Response(renderPollsPage(page), {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      }
+
+      // Public detail page for a completed, non-test poll.
+      const pollPathMatch = url.pathname.match(/^\/poll\/([^/]+)$/);
+      if (pollPathMatch && request.method === "GET") {
+        let pollId;
+        try {
+          pollId = decodeURIComponent(pollPathMatch[1]);
+        } catch {
+          return new Response("Not Found", { status: 404 });
+        }
+
+        const pollManager = new PollManager(env);
+        const poll = await pollManager.getPoll(pollId);
+        if (!poll || poll.phase !== "completed" || poll.isTest) {
+          return new Response("Not Found", { status: 404 });
+        }
+
+        return new Response(renderPollPage(poll), {
           status: 200,
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });

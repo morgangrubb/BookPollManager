@@ -76,7 +76,7 @@ export class PollManager {
       const nominationsQuery = this.db
         .prepare(
           `
-                SELECT * FROM nominations WHERE poll_id = ? ORDER BY created_at ASC LIMIT 50
+                SELECT * FROM nominations WHERE poll_id = ? ORDER BY created_at ASC
             `,
         )
         .bind(pollId);
@@ -595,6 +595,119 @@ export class PollManager {
     } catch (error) {
       console.error("Error getting completed polls:", error);
       return [];
+    }
+  }
+
+  // Winner export rows for the public /polls.csv download. This query is
+  // intentionally unpaginated so the download contains the complete history.
+  async getCompletedPollWinners() {
+    try {
+      const result = await this.db
+        .prepare(
+          `
+                SELECT id, title, created_at, nomination_deadline,
+                       voting_deadline, results_data
+                FROM polls
+                WHERE phase = 'completed' AND is_test = 0
+                ORDER BY created_at DESC, id DESC
+            `,
+        )
+        .all();
+
+      return (result?.results || []).map((row) => {
+        let winner = null;
+        if (row.results_data) {
+          try {
+            const results = JSON.parse(row.results_data);
+            winner =
+              results?.winner && typeof results.winner === "object"
+                ? results.winner
+                : null;
+          } catch {
+            winner = null;
+          }
+        }
+
+        return {
+          id: row.id,
+          title: row.title,
+          createdAt: row.created_at,
+          nominationDeadline: row.nomination_deadline,
+          votingDeadline: row.voting_deadline,
+          winner,
+        };
+      });
+    } catch (error) {
+      console.error("Error getting completed poll winners:", error);
+      return [];
+    }
+  }
+
+  // Paginated summaries for the public /polls page. Filtering and ordering
+  // happen in D1 so the endpoint remains complete when there are more than
+  // the 500 polls used by the historical /stats calculation.
+  async getCompletedPollsPage(page = 1, pageSize = 20) {
+    const normalizedPage =
+      Number.isInteger(page) && page > 0 ? page : 1;
+    const normalizedPageSize =
+      Number.isInteger(pageSize) && pageSize > 0 ? pageSize : 20;
+
+    try {
+      const countResult = await this.db
+        .prepare(
+          `
+                SELECT COUNT(*) AS total
+                FROM polls
+                WHERE phase = 'completed' AND is_test = 0
+            `,
+        )
+        .first();
+      const totalPolls = Math.max(0, Number(countResult?.total || 0));
+      const totalPages = Math.max(
+        1,
+        Math.ceil(totalPolls / normalizedPageSize),
+      );
+      const currentPage = Math.min(normalizedPage, totalPages);
+      const offset = (currentPage - 1) * normalizedPageSize;
+
+      const result = await this.db
+        .prepare(
+          `
+                SELECT id, title, tally_method, created_at
+                FROM polls
+                WHERE phase = 'completed' AND is_test = 0
+                ORDER BY created_at DESC, id DESC
+                LIMIT ? OFFSET ?
+            `,
+        )
+        .bind(normalizedPageSize, offset)
+        .all();
+
+      const polls = (result?.results || []).map((row) => ({
+        id: row.id,
+        title: row.title,
+        tallyMethod: row.tally_method,
+        phase: "completed",
+        createdAt: row.created_at,
+        isTest: false,
+      }));
+
+      return {
+        polls,
+        page: currentPage,
+        pageSize: normalizedPageSize,
+        totalPolls,
+        totalPages,
+      };
+    } catch (error) {
+      console.error("Error getting paginated completed polls:", error);
+      return {
+        polls: [],
+        page: normalizedPage,
+        pageSize: normalizedPageSize,
+        totalPolls: 0,
+        totalPages: 1,
+      };
     }
   }
 

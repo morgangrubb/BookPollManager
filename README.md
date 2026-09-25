@@ -98,6 +98,12 @@ https://discord-book-poll-bot.miggles.workers.dev/invite
 
 See [QUICK_START.md](QUICK_START.md) for complete command reference.
 
+## Web Pages
+
+- `/polls` - Browse completed non-test polls, 20 per page (`?page=N`)
+- `/polls.csv` - Download all completed non-test poll winners as CSV
+- `/poll/:pollId` - View a completed poll's nominations and final tally
+
 ## Testing
 
 ```bash
