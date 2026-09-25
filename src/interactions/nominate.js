@@ -78,12 +78,11 @@ export async function handleNominate({
     });
   }
 
-  if (!title) {
-    return createResponse({
-      ephemeral: true,
-      content: "Book title is required for nomination.",
-    });
-  }
+  // Check if book has already won a poll
+  const previousWin = await pollManager.getPreviousWinInfo(title, author, link);
+  const previousWinWarning = previousWin
+    ? `⚠️ **Note:** "${title}" ${author ? `by ${author}` : ""} has already won a previous poll (Poll ID: ${previousWin.pollId} - "${previousWin.pollTitle}"), matched by ${previousWin.matchType === "goodreads_id" ? "Goodreads ID" : "title and author"}.\n\n`
+    : "";
 
   const nomination = {
     title,
@@ -100,7 +99,7 @@ export async function handleNominate({
     const updatedPoll = await pollManager.getPoll(poll.id);
 
     return createResponse({
-      content: `\n\u200b\n\u200b📖 ${nomination.username} nominated ${formatNomination(nomination, { includeUser: false })}!\n\u200b`,
+      content: `${previousWinWarning}\n\u200b\n\u200b📖 ${nomination.username} nominated ${formatNomination(nomination, { includeUser: false })}!\n\u200b`,
       embeds: [formatStatus(updatedPoll)],
     });
   } catch (error) {

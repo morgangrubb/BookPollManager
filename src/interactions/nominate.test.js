@@ -26,10 +26,12 @@ describe("handleNominate", () => {
       phase: "nomination",
       nominations: [],
     });
+    const mockGetPreviousWinInfo = vi.fn().mockResolvedValue(null);
     PollManager.mockImplementation(() => {
       return {
         nominateBook: mockNominateBook,
         getPoll: mockGetPoll,
+        getPreviousWinInfo: mockGetPreviousWinInfo,
       };
     });
 
@@ -72,6 +74,45 @@ describe("handleNominate", () => {
       }
     );
     expect(createResponse).toHaveBeenCalled();
+    expect(data.content).toContain("nominated");
+  });
+
+  it("should add a nomination and warn when the book already won", async () => {
+    const mockNominateBook = vi.fn().mockResolvedValue(true);
+    const mockGetPoll = vi.fn().mockResolvedValue({
+      id: "123",
+      title: "Test Poll",
+      phase: "nomination",
+      nominations: [],
+    });
+    const mockGetPreviousWinInfo = vi.fn().mockResolvedValue({
+      pollId: "OLD-POLL",
+      pollTitle: "Previous Poll",
+      matchType: "goodreads_id",
+    });
+    PollManager.mockImplementation(() => ({
+      nominateBook: mockNominateBook,
+      getPoll: mockGetPoll,
+      getPreviousWinInfo: mockGetPreviousWinInfo,
+    }));
+
+    const response = await handleNominate({
+      interaction: {
+        member: { user: { id: "test-user", username: "test-user" } },
+      },
+      options: [
+        { name: "title", value: "Test Book" },
+        { name: "author", value: "Test Author" },
+        { name: "link", value: "https://www.goodreads.com/book/show/123" },
+      ],
+      pollManager: new PollManager({}),
+      poll: { id: "123", phase: "nomination", nominations: [] },
+      userId: "test-user",
+    });
+    const data = await response.json();
+
+    expect(mockNominateBook).toHaveBeenCalledOnce();
+    expect(data.content).toContain("already won a previous poll");
     expect(data.content).toContain("nominated");
   });
 });

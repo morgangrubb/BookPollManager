@@ -643,6 +643,87 @@ export class PollManager {
     }
   }
 
+  async checkIfBookHasWon(title, author, link) {
+    try {
+      const winners = await this.getCompletedPollWinners();
+      const normalizedTitle = title.trim().toLowerCase();
+      const normalizedAuthor = author?.trim().toLowerCase() || "";
+      const bookId = this.extractGoodreadsBookId(link);
+
+      return winners.some((poll) => {
+        if (!poll.winner) return false;
+        const winnerTitle = poll.winner.title?.trim().toLowerCase();
+        const winnerAuthor = poll.winner.author?.trim().toLowerCase() || "";
+        const winnerLink = poll.winner.link || "";
+        const winnerBookId = this.extractGoodreadsBookId(winnerLink);
+
+        // Check by Goodreads ID if available
+        if (bookId && winnerBookId && bookId === winnerBookId) {
+          return true;
+        }
+        // Fallback to title/author match
+        return (
+          winnerTitle === normalizedTitle && winnerAuthor === normalizedAuthor
+        );
+      });
+    } catch (error) {
+      console.error("Error checking if book has won:", error);
+      return false;
+    }
+  }
+
+  async getPreviousWinInfo(title, author, link) {
+    try {
+      const winners = await this.getCompletedPollWinners();
+      const normalizedTitle = title.trim().toLowerCase();
+      const normalizedAuthor = author?.trim().toLowerCase() || "";
+      const bookId = this.extractGoodreadsBookId(link);
+
+      for (const poll of winners) {
+        if (!poll.winner) continue;
+        const winnerTitle = poll.winner.title?.trim().toLowerCase();
+        const winnerAuthor = poll.winner.author?.trim().toLowerCase() || "";
+        const winnerLink = poll.winner.link || "";
+        const winnerBookId = this.extractGoodreadsBookId(winnerLink);
+
+        // Check by Goodreads ID if available
+        if (bookId && winnerBookId && bookId === winnerBookId) {
+          return {
+            pollId: poll.id,
+            pollTitle: poll.title,
+            createdAt: poll.createdAt,
+            winner: poll.winner,
+            matchType: "goodreads_id",
+          };
+        }
+        // Fallback to title/author match
+        if (
+          winnerTitle === normalizedTitle &&
+          winnerAuthor === normalizedAuthor
+        ) {
+          return {
+            pollId: poll.id,
+            pollTitle: poll.title,
+            createdAt: poll.createdAt,
+            winner: poll.winner,
+            matchType: "title_author",
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting previous win info:", error);
+      return null;
+    }
+  }
+
+  extractGoodreadsBookId(link) {
+    if (!link) return null;
+    // Match goodreads.com/book/show/BOOK_ID or goodreads.com/book/show/BOOK_ID-TITLE
+    const match = link.match(/goodreads\.com\/book\/show\/(\d+)/);
+    return match ? match[1] : null;
+  }
+
   // Paginated summaries for the public /polls page. Filtering and ordering
   // happen in D1 so the endpoint remains complete when there are more than
   // the 500 polls used by the historical /stats calculation.

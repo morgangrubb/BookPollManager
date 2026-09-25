@@ -108,3 +108,32 @@ describe("PollManager.getCompletedPollsPage", () => {
     );
   });
 });
+
+describe("PollManager.getPreviousWinInfo", () => {
+  it("matches a previous winner by Goodreads book ID", async () => {
+    const pollManager = new PollManager({});
+    pollManager.getCompletedPollWinners = async () => [
+      {
+        id: "POLL-1",
+        title: "January Poll",
+        winner: {
+          title: "Different Edition Title",
+          author: "Different Author Metadata",
+          link: "https://www.goodreads.com/book/show/12345-original-title",
+        },
+      },
+    ];
+
+    const previousWin = await pollManager.getPreviousWinInfo(
+      "Another Edition Title",
+      "Another Author Metadata",
+      "https://goodreads.com/book/show/12345-new-title",
+    );
+
+    expect(previousWin).toMatchObject({
+      pollId: "POLL-1",
+      pollTitle: "January Poll",
+      matchType: "goodreads_id",
+    });
+  });
+});
