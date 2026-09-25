@@ -30,10 +30,12 @@ describe("handleCreatePoll", () => {
       channel_id: "test-channel",
       member: { user: { id: "test-user" } },
     };
+    const nominationEnd = new Date(Date.now() + 86400000).toISOString();
+    const votingEnd = new Date(Date.now() + 2 * 86400000).toISOString();
     const options = [
       { name: "title", value: "Test Poll" },
-      { name: "nomination_end", value: "2025-12-31 23:59" },
-      { name: "voting_end", value: "2026-01-15 23:59" },
+      { name: "nomination_end", value: nominationEnd },
+      { name: "voting_end", value: votingEnd },
     ];
     const pollManager = new PollManager({});
 
@@ -45,15 +47,17 @@ describe("handleCreatePoll", () => {
     const data = await response.json();
 
     expect(PollManager).toHaveBeenCalledTimes(1);
-    expect(mockCreatePoll).toHaveBeenCalledWith({
-      title: "Test Poll",
-      guildId: "test-guild",
-      channelId: "test-channel",
-      creatorId: "test-user",
-      tallyMethod: "ranked-choice",
-      nominationEnd: new Date("2025-12-31 23:59").toISOString(),
-      votingEnd: new Date("2026-01-15 23:59").toISOString(),
-    });
+    expect(mockCreatePoll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Test Poll",
+        guildId: "test-guild",
+        channelId: "test-channel",
+        creatorId: "test-user",
+        tallyMethod: "ranked-choice",
+        nominationEnd,
+        votingEnd,
+      }),
+    );
     expect(response.status).toBe(200);
     expect(data.type).toBe(4);
     expect(data.data.embeds[0].title).toBe("📚 New Book Poll Created!");

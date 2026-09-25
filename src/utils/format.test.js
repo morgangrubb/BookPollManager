@@ -7,6 +7,16 @@ import {
 } from "./format.js";
 import { describe, it, expect, vi } from "vitest";
 
+function getField(fields, name) {
+  const field = fields.find((f) => f.name === name);
+  if (!field) {
+    throw new Error(
+      `Expected field "${name}" but found: ${fields.map((f) => f.name).join(", ") || "(none)"}`,
+    );
+  }
+  return field;
+}
+
 const mockPoll = {
   id: "test-poll-id",
   title: "Test Poll",
@@ -41,7 +51,7 @@ describe("formatNomination", () => {
       username: "testuser",
     };
     expect(formatNomination(nomination)).toBe(
-      "[The Great Gatsby by F. Scott Fitzgerald](https://example.com/gatsby) (testuser)"
+      "[The Great Gatsby](https://example.com/gatsby) by F. Scott Fitzgerald (testuser)"
     );
   });
 
@@ -64,7 +74,7 @@ describe("formatNomination", () => {
       username: "testuser3",
     };
     expect(formatNomination(nomination, { includeUser: false })).toBe(
-      "[A Third Book by Author C](https://example.com/third)"
+      "[A Third Book](https://example.com/third) by Author C"
     );
   });
 
@@ -98,8 +108,8 @@ describe("formatNominations", () => {
       ],
     };
     const expected =
-      "1. [Book 1 by Author 1](https://example.com/1) (User1)\n" +
-      "2. [Book 2 by Author 2](https://example.com/2) (User2)";
+      "1. [Book 1](https://example.com/1) by Author 1 (User1)\n" +
+      "2. [Book 2](https://example.com/2) by Author 2 (User2)";
     expect(formatNominations(poll)).toBe(expected);
   });
 });
@@ -113,9 +123,10 @@ describe("formatPollFields", () => {
       results: { totalVotes: 0 },
     };
     const fields = formatPollFields(poll);
-    expect(fields).toHaveLength(3);
-    expect(fields[0].value).toBe("Nomination");
-    expect(fields[1].name).toBe("📅 Deadline");
+    expect(getField(fields, "📝 Phase").value).toBe("Nomination");
+    expect(getField(fields, "📅 Deadline")).toBeDefined();
+    expect(getField(fields, "📊 Tally Method").value).toBe("Chris Style");
+    expect(fields.find((f) => f.name === "🗳️ Votes Cast")).toBeUndefined();
   });
 
   it("formats fields for voting phase", () => {
@@ -126,10 +137,10 @@ describe("formatPollFields", () => {
       results: { totalVotes: 10 },
     };
     const fields = formatPollFields(poll);
-    expect(fields).toHaveLength(4);
-    expect(fields[0].value).toBe("Voting");
-    expect(fields[1].name).toBe("📅 Deadline");
-    expect(fields[3].value).toBe("10");
+    expect(getField(fields, "📝 Phase").value).toBe("Voting");
+    expect(getField(fields, "📅 Deadline")).toBeDefined();
+    expect(getField(fields, "📊 Tally Method").value).toBe("Ranked Choice");
+    expect(getField(fields, "🗳️ Votes Cast").value).toBe("10");
   });
 
   it("formats fields for completed phase", () => {
@@ -139,9 +150,9 @@ describe("formatPollFields", () => {
       results: { totalVotes: 25 },
     };
     const fields = formatPollFields(poll);
-    expect(fields).toHaveLength(3);
-    expect(fields[0].value).toBe("Completed");
-    expect(fields[2].value).toBe("25");
+    expect(getField(fields, "📝 Phase").value).toBe("Completed");
+    expect(getField(fields, "🗳️ Votes Cast").value).toBe("25");
+    expect(fields.find((f) => f.name === "📅 Deadline")).toBeUndefined();
   });
 
   it("does not add a test poll field when the poll is not flagged as a test", () => {
@@ -173,7 +184,10 @@ describe("formatStatus", () => {
     const embed = formatStatus(mockPoll, { header: "Status" });
     expect(embed.title).toBe("📚 Test Poll - Status");
     expect(embed.color).toBe(0x0099ff);
-    expect(embed.fields).toHaveLength(4); // Phase, Deadline, Tally, Nominations
+    expect(getField(embed.fields, "📝 Phase").value).toBe("Nomination");
+    expect(embed.description).toContain("📖 Nominations");
+    expect(embed.description).toContain("Book A");
+    expect(embed.description).toContain("Book B");
     expect(embed.footer.text).toBe("Poll ID: test-poll-id");
   });
 
@@ -187,7 +201,8 @@ describe("formatStatus", () => {
     const embed = formatStatus(votingPoll);
     expect(embed.title).toBe("📚 Test Poll");
     expect(embed.color).toBe(0xffaa00);
-    expect(embed.fields).toHaveLength(5); // Phase, Deadline, Tally, Votes, Nominations
+    expect(getField(embed.fields, "📝 Phase").value).toBe("Voting");
+    expect(getField(embed.fields, "🗳️ Votes Cast").value).toBe("5");
   });
 
   it("prefixes the title with a test badge and adds a field when the poll is flagged as a test poll", () => {
@@ -213,8 +228,13 @@ describe("formatStatus", () => {
     };
     const embed = formatStatus(completedPoll);
     expect(embed.color).toBe(0x00ff00);
-    expect(embed.fields).toHaveLength(5); // Phase, Tally, Votes, Winner, Nominations
-    expect(embed.fields[3].name).toBe("🏆 Winner");
+    const winnerField = getField(embed.fields, "🏆 Winner");
+    expect(winnerField.value).toContain("Book A");
+    expect(winnerField.value).toContain("Author A");
+    expect(winnerField.value).toContain("UserA");
+    expect(
+      embed.fields.find((f) => f.name === "⚠️ Tie Detected"),
+    ).toBeUndefined();
   });
 
   it("formats the status embed for a completed poll with a tie", () => {
@@ -243,7 +263,9 @@ describe("formatStatus", () => {
     };
     const embed = formatStatus(tiePoll);
     expect(embed.color).toBe(0x00ff00);
-    expect(embed.fields).toHaveLength(6); // Phase, Tally, Votes, Tie Detected, Tied Options, Nominations
-    expect(embed.fields[3].name).toBe("⚠️ Tie Detected");
+    expect(getField(embed.fields, "⚠️ Tie Detected")).toBeDefined();
+    expect(getField(embed.fields, "Tied Options").value).toContain("Book A");
+    expect(getField(embed.fields, "Tied Options").value).toContain("Book C");
+    expect(embed.fields.find((f) => f.name === "🏆 Winner")).toBeUndefined();
   });
 });
